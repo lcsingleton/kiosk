@@ -1,0 +1,5 @@
+# RK3576 mainboard's own GPIO header (per vendor), used for the status LEDs
+# once discovery (see deploy/README.md step 4) confirms which gpiochip it is.
+# Class-based match so it doesn't need the exact chip number pinned down —
+# only the kiosk user's "gpio" group membership gates access.
+SUBSYSTEM=="gpio", KERNEL=="gpiochip*", MODE="0660", GROUP="gpio"

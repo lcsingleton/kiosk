@@ -22,24 +22,62 @@ device and become master with nothing to fight.
      qml6-module-qtquick-virtualkeyboard qt6-virtualkeyboard-plugin
    ```
 
-4. Wire up the MCP2221A (I2C bridge for the VL53L0X + status LEDs):
+4. The vendor says this mainboard breaks out GPIO directly (and possibly
+   I2C) — worth checking before wiring up the MCP2221A, since native pins
+   would mean driving the status LEDs (and maybe the VL53L0X) off the SoC
+   instead of through the dongle. On the tablet:
+
+   ```
+   gpiodetect                # any gpiochip besides the MCP2221A's?
+   gpioinfo <chip>            # line numbers/names, if so
+   i2cdetect -l               # any native i2c-N bus besides the MCP2221A's?
+   ```
+
+   - If a native `gpiochip` shows up: use it for the status LEDs via
+     `99-native-gpio.rules` below instead of the MCP2221A's 4 low-current
+     3.3V lines. Note the line numbers from `gpioinfo` for the app config.
+   - If a native `i2c-N` bus shows up: the VL53L0X can move to it too,
+     dropping the MCP2221A from this flow entirely.
+   - If neither shows up (or the vendor's "GPIO" turns out to be something
+     else, e.g. debug UART pins): fall back to the MCP2221A path below as-is.
+
+5. Wire up I2C/GPIO. Always:
+
+   ```
+   sudo cp i2c-dev.conf /etc/modules-load.d/
+   ```
+
+   For the MCP2221A (I2C bridge for the VL53L0X + status LEDs, or whichever
+   half of that step 4 didn't move to native pins):
 
    ```
    sudo groupadd -f i2c
    sudo usermod -aG i2c,plugdev,video,render kiosk
    sudo cp 99-mcp2221.rules /etc/udev/rules.d/
-   sudo cp i2c-dev.conf /etc/modules-load.d/
+   ```
+
+   For native mainboard GPIO (status LEDs, if step 4 found a gpiochip):
+
+   ```
+   sudo groupadd -f gpio
+   sudo usermod -aG gpio kiosk
+   sudo cp 99-native-gpio.rules /etc/udev/rules.d/
+   ```
+
+   Then:
+
+   ```
    sudo udevadm control --reload-rules
    ```
 
-5. Install and enable the kiosk service:
+6. Install and enable the kiosk service:
 
    ```
    sudo cp kiosk.service /etc/systemd/system/
    sudo systemctl enable --now kiosk.service
    ```
 
-6. Reboot, then check it came up on its own:
+7. Reboot, then check it came up on its own:
 
    ```
    systemctl status kiosk
