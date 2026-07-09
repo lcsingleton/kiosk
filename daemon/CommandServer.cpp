@@ -21,8 +21,6 @@ CommandServer::CommandServer(CalendarClient *client, QObject *parent)
         [this](const Command &c, std::function<void(Result)> reply) { handlePatchField(c, "summary", "newSummary", reply); };
     m_handlers[CommandAction::ChangeEventLocation] =
         [this](const Command &c, std::function<void(Result)> reply) { handlePatchField(c, "location", "newLocation", reply); };
-    m_handlers[CommandAction::InviteParticipant] =
-        [this](const Command &c, std::function<void(Result)> reply) { handleInvite(c, reply); };
 }
 
 bool CommandServer::listen(const QString &socketPath, QString &error) {
@@ -168,39 +166,4 @@ void CommandServer::handlePatchField(const Command &cmd, const QString &jsonKey,
         [cmd, reply](QJsonObject, QString code, QString message) {
             reply(code.isEmpty() ? Result::success(cmd.commandId) : Result::failure(cmd.commandId, code, message));
         });
-}
-
-void CommandServer::handleInvite(const Command &cmd, std::function<void(Result)> reply) {
-    const QString email = cmd.payload.value("email").toString();
-    if (email.isEmpty()) {
-        reply(Result::failure(cmd.commandId, QStringLiteral("invalid_request"),
-                               QStringLiteral("InviteParticipant requires payload.email")));
-        return;
-    }
-
-    // attendees[] is replaced wholesale by PATCH, so the current list has
-    // to be read first and appended to, not sent as a single-element patch.
-    m_client->getEvent(cmd.calendarId, cmd.eventId, [this, cmd, email, reply](QJsonObject event, QString code, QString message) {
-        if (!code.isEmpty()) {
-            reply(Result::failure(cmd.commandId, code, message));
-            return;
-        }
-
-        QJsonArray attendees = event.value("attendees").toArray();
-        for (const QJsonValue &v : attendees) {
-            if (v.toObject().value("email").toString().compare(email, Qt::CaseInsensitive) == 0) {
-                reply(Result::success(cmd.commandId)); // already invited
-                return;
-            }
-        }
-        attendees.append(QJsonObject{{"email", email}});
-
-        QJsonObject patchBody;
-        patchBody["attendees"] = attendees;
-        m_client->patchEvent(cmd.calendarId, cmd.eventId, cmd.etag, patchBody,
-            [cmd, reply](QJsonObject, QString patchCode, QString patchMessage) {
-                reply(patchCode.isEmpty() ? Result::success(cmd.commandId)
-                                           : Result::failure(cmd.commandId, patchCode, patchMessage));
-            });
-    });
 }

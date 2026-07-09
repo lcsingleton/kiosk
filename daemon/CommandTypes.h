@@ -12,7 +12,6 @@ constexpr auto RescheduleEvent = "RescheduleEvent";
 constexpr auto CancelEvent = "CancelEvent";
 constexpr auto RenameEvent = "RenameEvent";
 constexpr auto ChangeEventLocation = "ChangeEventLocation";
-constexpr auto InviteParticipant = "InviteParticipant";
 } // namespace CommandAction
 
 // One line of NDJSON from the kiosk app:

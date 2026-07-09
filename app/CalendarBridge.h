@@ -51,8 +51,6 @@ public:
                                      const QString &newSummary);
     Q_INVOKABLE QString changeEventLocation(const QString &calendarId, const QString &eventId, const QString &etag,
                                              const QString &newLocation);
-    Q_INVOKABLE QString inviteParticipant(const QString &calendarId, const QString &eventId, const QString &etag,
-                                           const QString &email);
 
 signals:
     void snapshotChanged();

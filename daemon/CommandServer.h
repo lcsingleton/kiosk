@@ -41,7 +41,6 @@ private:
     void handleCancel(const Command &cmd, std::function<void(Result)> reply);
     void handlePatchField(const Command &cmd, const QString &jsonKey, const QString &payloadKey,
                            std::function<void(Result)> reply);
-    void handleInvite(const Command &cmd, std::function<void(Result)> reply);
 
     CalendarClient *m_client;
     QLocalServer m_server;

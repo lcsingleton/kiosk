@@ -46,7 +46,6 @@ Popup {
     onOpened: {
         titleField.text = event ? (event.title || "") : ""
         locationField.text = ""
-        inviteField.text = ""
         if (isNew) {
             const h = Math.floor(newStartHour)
             const m = Math.round((newStartHour - h) * 60)
@@ -138,23 +137,6 @@ Popup {
                                                         popup.event.etag, newStart.toISOString(), newEnd.toISOString())
                     }
                 }
-            }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            visible: !popup.isNew
-            spacing: 8
-            TextField {
-                id: inviteField
-                Layout.fillWidth: true
-                placeholderText: "Invite email"
-            }
-            Button {
-                text: "Invite"
-                enabled: inviteField.text.length > 0
-                onClicked: calendarBridge.inviteParticipant(popup.event.calendarId, popup.event.eventId,
-                                                              popup.event.etag, inviteField.text)
             }
         }
 

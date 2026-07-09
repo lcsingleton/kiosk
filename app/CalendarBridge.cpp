@@ -128,13 +128,6 @@ QString CalendarBridge::changeEventLocation(const QString &calendarId, const QSt
                         QStringLiteral("Changing location"));
 }
 
-QString CalendarBridge::inviteParticipant(const QString &calendarId, const QString &eventId, const QString &etag,
-                                           const QString &email) {
-    QJsonObject payload{{"email", email}};
-    return sendCommand(QStringLiteral("InviteParticipant"), calendarId, eventId, etag, payload,
-                        QStringLiteral("Inviting %1").arg(email));
-}
-
 void CalendarBridge::onSocketReadyRead() {
     m_recvBuffer += m_socket.readAll();
     int idx;
