@@ -4,15 +4,6 @@ import QtQuick
 // integrations. Shapes here are what the cards in main.qml bind against —
 // swap the source, keep the fields.
 QtObject {
-    // Fixed per-person color order — never reassigned when the family list
-    // changes, so identity stays consistent across cards (accessibility: a
-    // legend/color should never be reused for a different person over time).
-    readonly property color colorMum: "#3987e5"
-    readonly property color colorDad: "#199e70"
-    readonly property color colorRobin: "#c98500"
-    readonly property color colorSasha: "#008300"
-    readonly property color colorOther: "#9085e9"
-
     // One system at a time in practice (heating XOR cooling), so it's
     // modeled — and displayed — as a single climate system, not two.
     property var climate: ({
@@ -25,44 +16,22 @@ QtObject {
     })
 
     // The four columns of the day-grid — fixed order, name doubles as the
-    // lookup key for todaySchedule items.
-    readonly property var people: [
-        { name: "Mum",    color: colorMum },
-        { name: "Dad",    color: colorDad },
-        { name: "Robin",  color: colorRobin },
-        { name: "Sasha",  color: colorSasha }
-    ]
+    // lookup key for todaySchedule items. Sourced live from the
+    // calendar-sync daemon's snapshot (see CalendarBridge) — swapped from
+    // mock literals, field shapes unchanged.
+    readonly property var people: calendarBridge.people
 
     // Family-wide/all-day things today, not tied to one person's hourly
     // schedule: birthdays (incl. family friends), vet runs, household stuff,
     // departures for a family trip/weekend away.
-    property var todayHighlights: [
-        { icon: "🎂", label: "Grandma's birthday",                     time: "" },
-        { icon: "🐾", label: "Vet appt — Rex",                         time: "2:00 PM" },
-        { icon: "🧹", label: "Cleaner",                                time: "1:00 PM" },
-        { icon: "🏖️", label: "Depart for the lake house (long weekend)", time: "5:00 PM" }
-    ]
+    property var todayHighlights: calendarBridge.todayHighlights
 
     // Per-person timed items for today. start/duration are decimal hours
     // (e.g. 8.25 = 8:15) so the day-grid can position blocks directly
     // without re-parsing a time string.
-    property var todaySchedule: [
-        { person: "Mum",    color: colorMum,    event: "School drop-off",  start: 8.25,  duration: 0.25 },
-        { person: "Dad",    color: colorDad,    event: "Standup",          start: 9.0,   duration: 0.5 },
-        { person: "Mum",    color: colorMum,    event: "Dentist checkup",  start: 11.0,  duration: 0.5 },
-        { person: "Robin",  color: colorRobin,  event: "School pickup",    start: 15.25, duration: 0.25 },
-        { person: "Sasha",  color: colorSasha,  event: "School pickup",    start: 15.25, duration: 0.25 },
-        { person: "Robin",  color: colorRobin,  event: "Swimming lessons", start: 16.0,  duration: 1.0 },
-        { person: "Sasha",  color: colorSasha,  event: "Piano practice",   start: 16.5,  duration: 0.5 },
-        { person: "Dad",    color: colorDad,    event: "Gym",              start: 17.5,  duration: 1.0 },
-        { person: "Mum",    color: colorMum,    event: "Yoga class",       start: 18.0,  duration: 1.0 }
-    ]
+    property var todaySchedule: calendarBridge.todaySchedule
 
-    property var weekend: [
-        { day: "Saturday", date: "Jul 11", title: "Robin's swimming carnival",      time: "9:00 AM",  accent: colorRobin },
-        { day: "Saturday", date: "Jul 11", title: "Birthday party — Sasha invited", time: "2:00 PM",  accent: colorSasha },
-        { day: "Sunday",   date: "Jul 12", title: "Family lunch at Grandma's",      time: "12:30 PM", accent: colorOther }
-    ]
+    property var weekend: calendarBridge.weekend
 
     // Grouped by day so the widget can render one Sailfish-style day header
     // followed by that day's items, instead of repeating the date per row.
@@ -79,12 +48,7 @@ QtObject {
         return days
     }
 
-    property var upcoming: [
-        { month: "JUL", day: "18", title: "Dentist — Robin & Sasha",           time: "3:30 PM", accent: colorOther },
-        { month: "JUL", day: "22", title: "Parent-teacher interviews",          time: "4:00 PM", accent: colorOther },
-        { month: "AUG", day: "02", title: "Mum's work conference (interstate)", time: "All day", accent: colorMum },
-        { month: "AUG", day: "05", title: "Council rates due",                  time: "",        accent: colorOther }
-    ]
+    property var upcoming: calendarBridge.upcoming
 
     property var shopping: [
         { item: "Milk", done: false },

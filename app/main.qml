@@ -7,20 +7,74 @@ import QtQuick.VirtualKeyboard
 Window {
     id: root
     visible: true
-    width: 540
-    height: 960
+    width: 960
+    height: 540
     color: "#05070c"
     title: "ha-tab kiosk (dev preview — resize me)"
 
     DashboardData { id: data }
+
+    // Normalizes a tapped item from whichever list it came from
+    // (todaySchedule uses "event" for its title field; weekend/upcoming use
+    // "title") into the one shape EventEditPopup expects.
+    function openEditPopup(item, titleKey) {
+        eventEditPopup.isNew = false
+        eventEditPopup.event = {
+            calendarId: item.calendarId,
+            eventId: item.eventId,
+            etag: item.etag,
+            title: item[titleKey],
+            startIso: item.startIso,
+            endIso: item.endIso
+        }
+        eventEditPopup.open()
+    }
+
+    function openCreatePopup(personName, approxHour) {
+        const person = data.people.find(p => p.name === personName)
+        eventEditPopup.isNew = true
+        eventEditPopup.newCalendarId = person ? person.calendarId : ""
+        eventEditPopup.event = { title: "" }
+        eventEditPopup.newStartHour = approxHour
+        eventEditPopup.open()
+    }
+
+    // Re-finds the same event by id across all three lists — used to keep
+    // the open popup's etag current as the snapshot refreshes, so a second
+    // action in the same popup session (e.g. Rename then Move) isn't
+    // rejected as a conflict against an etag the first action already
+    // advanced past.
+    function findLiveEvent(eventId) {
+        let found = data.todaySchedule.find(e => e.eventId === eventId)
+        if (found) return { calendarId: found.calendarId, eventId: found.eventId, etag: found.etag, title: found.event, startIso: found.startIso, endIso: found.endIso }
+        found = data.weekend.find(e => e.eventId === eventId)
+        if (found) return { calendarId: found.calendarId, eventId: found.eventId, etag: found.etag, title: found.title, startIso: found.startIso, endIso: found.endIso }
+        found = data.upcoming.find(e => e.eventId === eventId)
+        if (found) return { calendarId: found.calendarId, eventId: found.eventId, etag: found.etag, title: found.title, startIso: found.startIso, endIso: found.endIso }
+        return null
+    }
+
+    Connections {
+        target: calendarBridge
+        function onSnapshotChanged() {
+            if (eventEditPopup.visible && !eventEditPopup.isNew && eventEditPopup.event) {
+                const fresh = findLiveEvent(eventEditPopup.event.eventId)
+                if (fresh)
+                    eventEditPopup.event = fresh
+            }
+        }
+        function onCommandFailed(commandId, what, errorCode, errorMessage) {
+            errorBanner.show(what + ": " + errorMessage)
+        }
+    }
 
     // Fixed virtual resolution matching the tablet's portrait mount.
     // Uniformly scaled (never stretched) to fit however this dev window is
     // resized, and letterboxed/centered on whatever's left over.
     Item {
         id: canvas
-        width: 1080
-        height: 1920
+        width: 1920
+        height: 1080
         transformOrigin: Item.TopLeft
         scale: Math.min(root.width / width, root.height / height)
         x: (root.width - width * scale) / 2
@@ -367,6 +421,8 @@ Window {
                                 rowHeight: 30
                                 windowHours: 6
                                 gutterWidth: 44
+                                onEventTapped: item => openEditPopup(item, "event")
+                                onEmptySlotTapped: (person, hour) => openCreatePopup(person, hour)
                             }
                         }
 
@@ -404,18 +460,27 @@ Window {
 
                                         Repeater {
                                             model: modelData.items
-                                            delegate: RowLayout {
+                                            delegate: Item {
                                                 width: parent.width
-                                                spacing: 8
-                                                Rectangle { width: 3; height: 24; radius: 2; color: modelData.accent }
-                                                Text {
-                                                    text: modelData.title
-                                                    color: "#eef2f9"
-                                                    font.pixelSize: 13
-                                                    wrapMode: Text.WordWrap
-                                                    Layout.fillWidth: true
+                                                height: weekendRow.implicitHeight
+                                                RowLayout {
+                                                    id: weekendRow
+                                                    width: parent.width
+                                                    spacing: 8
+                                                    Rectangle { width: 3; height: 24; radius: 2; color: modelData.accent }
+                                                    Text {
+                                                        text: modelData.title
+                                                        color: "#eef2f9"
+                                                        font.pixelSize: 13
+                                                        wrapMode: Text.WordWrap
+                                                        Layout.fillWidth: true
+                                                    }
+                                                    Text { text: modelData.time; color: "#8296b8"; font.pixelSize: 11 }
                                                 }
-                                                Text { text: modelData.time; color: "#8296b8"; font.pixelSize: 11 }
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    onClicked: openEditPopup(modelData, "title")
+                                                }
                                             }
                                         }
                                     }
@@ -431,24 +496,33 @@ Window {
                                 spacing: 6
                                 Repeater {
                                     model: data.upcoming
-                                    delegate: RowLayout {
+                                    delegate: Item {
                                         width: parent.width
-                                        spacing: 10
-                                        Item {
-                                            width: 36; height: 36
-                                            Glow { anchors.fill: parent; color: modelData.accent; intensity: 0.5 }
+                                        height: upcomingRow.implicitHeight
+                                        RowLayout {
+                                            id: upcomingRow
+                                            width: parent.width
+                                            spacing: 10
+                                            Item {
+                                                width: 36; height: 36
+                                                Glow { anchors.fill: parent; color: modelData.accent; intensity: 0.5 }
+                                                Column {
+                                                    anchors.centerIn: parent
+                                                    spacing: 0
+                                                    Text { text: modelData.month; color: modelData.accent; font.pixelSize: 9; font.bold: true; anchors.horizontalCenter: parent.horizontalCenter }
+                                                    Text { text: modelData.day; color: "#eef2f9"; font.pixelSize: 14; font.bold: true; anchors.horizontalCenter: parent.horizontalCenter }
+                                                }
+                                            }
                                             Column {
-                                                anchors.centerIn: parent
+                                                Layout.fillWidth: true
                                                 spacing: 0
-                                                Text { text: modelData.month; color: modelData.accent; font.pixelSize: 9; font.bold: true; anchors.horizontalCenter: parent.horizontalCenter }
-                                                Text { text: modelData.day; color: "#eef2f9"; font.pixelSize: 14; font.bold: true; anchors.horizontalCenter: parent.horizontalCenter }
+                                                Text { text: modelData.title; color: "#eef2f9"; font.pixelSize: 13; wrapMode: Text.WordWrap; width: parent.width }
+                                                Text { text: modelData.time; color: "#8296b8"; font.pixelSize: 11; visible: !!modelData.time }
                                             }
                                         }
-                                        Column {
-                                            Layout.fillWidth: true
-                                            spacing: 0
-                                            Text { text: modelData.title; color: "#eef2f9"; font.pixelSize: 13; wrapMode: Text.WordWrap; width: parent.width }
-                                            Text { text: modelData.time; color: "#8296b8"; font.pixelSize: 11; visible: !!modelData.time }
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            onClicked: openEditPopup(modelData, "title")
                                         }
                                     }
                                 }
@@ -465,6 +539,22 @@ Window {
             y: Qt.inputMethod.visible ? canvas.height - height : canvas.height
             anchors.left: parent.left
             anchors.right: parent.right
+        }
+
+        ErrorBanner {
+            id: errorBanner
+            z: 100
+            anchors.top: canvas.top
+            anchors.left: canvas.left
+            anchors.right: canvas.right
+            anchors.topMargin: 84
+            anchors.leftMargin: 16
+            anchors.rightMargin: 16
+        }
+
+        EventEditPopup {
+            id: eventEditPopup
+            parent: canvas
         }
     }
 }

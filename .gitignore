@@ -26,3 +26,6 @@ Makefile
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Local dev secrets — never commit a real service-account key or config
+daemon/local-test/

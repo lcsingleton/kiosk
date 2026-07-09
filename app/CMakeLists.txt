@@ -4,10 +4,10 @@ project(hello-kiosk LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_AUTOMOC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Network)
 
-add_executable(hello-kiosk main.cpp)
-target_link_libraries(hello-kiosk PRIVATE Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick)
+add_executable(hello-kiosk main.cpp CalendarBridge.cpp)
+target_link_libraries(hello-kiosk PRIVATE Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Network)
 
 # Keep the .qml files next to the binary so they load via plain
 # QUrl::fromLocalFile / same-directory implicit import, no Qt resource

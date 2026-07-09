@@ -1,0 +1,15 @@
+{
+  "serviceAccountKeyPath": "/etc/kiosk/google-service-account.json",
+  "pollIntervalSeconds": 120,
+  "socketPath": "/run/kiosk/calendar-sync.sock",
+  "snapshotPath": "/run/kiosk/calendar-snapshot.json",
+  "calendars": [
+    { "calendarId": "family@example.com", "color": "#9085e9" }
+  ],
+  "people": [
+    { "person": "Sharon", "color": "#fbd75b" },
+    { "person": "Donald", "color": "#46d6db" },
+    { "person": "Mum", "color": "#3987e5" },
+    { "person": "Dad", "color": "#e66550" }
+  ]
+}

@@ -28,6 +28,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-dejavu-core \
     fonts-noto-color-emoji \
     xauth \
+    # --- calendar sync daemon ---
+    libssl-dev \
     # --- usb / i2c ---
     i2c-tools \
     libi2c-dev \
@@ -63,7 +65,7 @@ RUN useradd -m -s /bin/bash -G dialout,plugdev,video,render kiosk \
     && echo 'kiosk:kiosk' | chpasswd \
     && echo 'kiosk ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
-WORKDIR /home/kiosk/app
+WORKDIR /home/kiosk/kiosk
 RUN chown -R kiosk:kiosk /home/kiosk
 
 EXPOSE 22

@@ -33,6 +33,9 @@ Item {
     property real overflowHourScale: 26 // px per hour of an event's own duration, outside the window
     property real minChipHeight: 16     // legibility floor for compressed/short events
 
+    signal eventTapped(var item)                  // one entry from `items`, tapped to edit
+    signal emptySlotTapped(string person, real hour) // tapped empty space inside the live window, to create
+
     readonly property real colWidth: (width - gutterWidth) / Math.max(people.length, 1)
     readonly property real hourCount: endHour - startHour
     readonly property real effectiveWindowHours: Math.min(windowHours, hourCount)
@@ -231,17 +234,37 @@ Item {
         // would chop an easing item off right as it's mid-transition.
 
         // drag anywhere to move the conceptual window — deliberately no
-        // momentum/inertia, kept simple since it's just a comparison prototype
+        // momentum/inertia, kept simple since it's just a comparison prototype.
+        // Also doubles as tap-to-create on empty space: onClicked always
+        // fires on a clean press/release regardless of the manual panning
+        // above, so a real pan is told apart from a tap by accumulated
+        // drag distance, not by suppressing the panning itself.
         MouseArea {
             anchors.fill: parent
             property real pressMouseY: 0
             property real pressWindowStart: 0
-            onPressed: mouse => { pressMouseY = mouse.y; pressWindowStart = grid.windowStart }
+            property real totalDrag: 0
+            onPressed: mouse => { pressMouseY = mouse.y; pressWindowStart = grid.windowStart; totalDrag = 0 }
             onPositionChanged: mouse => {
                 if (pressed) {
                     const dy = mouse.y - pressMouseY
+                    totalDrag = Math.max(totalDrag, Math.abs(dy))
                     grid.windowStart = Math.max(grid.startHour, Math.min(pressWindowStart - dy / grid.rowHeight, grid.endHour - grid.effectiveWindowHours))
                 }
+            }
+            onClicked: mouse => {
+                if (totalDrag > 8)
+                    return // was a pan, not a tap
+                // Only the live time-scaled window has a clean position ->
+                // hour mapping; the before/after folds are dead-time-
+                // collapsed and don't correspond to a real time at all.
+                if (mouse.y < grid.windowTopY || mouse.y > grid.windowBottomY)
+                    return
+                const colIndex = Math.floor((mouse.x - grid.gutterWidth) / grid.colWidth)
+                if (colIndex < 0 || colIndex >= grid.people.length)
+                    return
+                const hour = grid.windowStart + (mouse.y - grid.windowTopY) / grid.rowHeight
+                grid.emptySlotTapped(grid.people[colIndex].name, hour)
             }
         }
 
@@ -288,6 +311,12 @@ Item {
             delegate: Rectangle {
                 property int colIndex: grid.people.findIndex(p => p.name === modelData.person)
                 property var layout: grid.layoutForIndex(index)
+                // modelData.color arrives as a "#rrggbb" string from
+                // CalendarBridge's JSON, not a QML color value — assigning
+                // it to a `color`-typed property is what performs the
+                // string-to-color coercion; .r/.g/.b below need that,
+                // they don't exist on the raw string.
+                property color chipColor: modelData.color
                 visible: colIndex >= 0
                 x: grid.gutterWidth + colIndex * grid.colWidth + 3
                 width: grid.colWidth - 6
@@ -301,10 +330,10 @@ Item {
                 Behavior on height { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
                 radius: 6
                 border.width: 1
-                border.color: Qt.rgba(modelData.color.r, modelData.color.g, modelData.color.b, 0.5)
+                border.color: Qt.rgba(chipColor.r, chipColor.g, chipColor.b, 0.5)
                 gradient: Gradient {
-                    GradientStop { position: 0.0; color: Qt.rgba(modelData.color.r, modelData.color.g, modelData.color.b, 0.34) }
-                    GradientStop { position: 1.0; color: Qt.rgba(modelData.color.r, modelData.color.g, modelData.color.b, 0.14) }
+                    GradientStop { position: 0.0; color: Qt.rgba(chipColor.r, chipColor.g, chipColor.b, 0.34) }
+                    GradientStop { position: 1.0; color: Qt.rgba(chipColor.r, chipColor.g, chipColor.b, 0.14) }
                 }
                 Rectangle {
                     anchors.left: parent.left
@@ -324,6 +353,14 @@ Item {
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
                     anchors.margins: 2
+                }
+                // Sits above the background pan MouseArea in z-order (this
+                // Repeater is declared after it), so a tap landing on a
+                // chip reaches this one first and never falls through to
+                // emptySlotTapped underneath.
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: grid.eventTapped(modelData)
                 }
                 Text {
                     anchors.fill: parent

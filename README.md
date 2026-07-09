@@ -5,6 +5,9 @@ tablet.
 
 - [`app/`](app/) — the Qt Quick source, built identically in both places
   below.
+- [`daemon/`](daemon/) — the calendar-sync daemon: Google Calendar auth,
+  polling, and the local command socket the app talks to. Separate CMake
+  target, same root build.
 - [`docker/`](docker/) + [`run.sh`](run.sh) — Debian 12 dev container (eglfs,
   SSH, I2C/USB tooling). Not a hardware-accurate clone of the tablet's Mali
   GPU — it uses whatever DRM/KMS device your dev box has (here: `amdgpu` via
@@ -88,16 +91,27 @@ cd app && cmake -B build && cmake --build build
 ./build/hello-kiosk
 ```
 
+(that builds just `app/` standalone — see [`daemon/README`](daemon/) or the
+root build below to also build the calendar-sync daemon, which additionally
+needs `libssl-dev` and links `Qt6::Network`.)
+
 Build/run the same source inside the container over SSH, forcing eglfs.
-`run.sh` bind-mounts `app/` to `/home/kiosk/app`, so it's already there —
-edit on the host, build/run over SSH:
+`run.sh` bind-mounts the **whole repo** to `/home/kiosk/kiosk` (not just
+`app/` — the calendar-sync daemon in `daemon/` needs to be reachable too),
+so it's already there — edit on the host, build/run over SSH. The root
+[`CMakeLists.txt`](CMakeLists.txt) builds both `app/` and `daemon/` as
+sibling targets from one `cmake -B build`:
 
 ```
 ssh -p 2222 kiosk@localhost
-cd /home/kiosk/app
+cd /home/kiosk/kiosk
 cmake -B build && cmake --build build
-QT_QPA_PLATFORM=eglfs QT_QPA_EGLFS_ALWAYS_SET_MODE=1 ./build/hello-kiosk
+QT_QPA_PLATFORM=eglfs QT_QPA_EGLFS_ALWAYS_SET_MODE=1 ./build/app/hello-kiosk
 ```
+
+The daemon binary lands at `./build/daemon/kiosk-calendar-sync` — run it
+with `--config <path>` pointing at a daemon config (see
+[`daemon/daemon-config.example.json`](daemon/daemon-config.example.json)).
 
 If SSH throws you into a GUI `ksshaskpass` dialog that can't parse the
 host-key/password prompts (seen on KDE desktops — it hijacks any `ssh`
@@ -152,7 +166,7 @@ export QT_QPA_EGLFS_INTEGRATION=eglfs_x11
 export QT_QPA_EGLFS_WIDTH=1080
 export QT_QPA_EGLFS_HEIGHT=1920
 export QT_IM_MODULE=qtvirtualkeyboard
-./build/hello-kiosk
+./build/app/hello-kiosk
 ```
 
 `QT_QPA_EGLFS_WIDTH`/`HEIGHT` force the logical screen size eglfs reports to
@@ -193,7 +207,7 @@ Ctrl+Alt+F3                              # switch to a free text console —
                                           # drop DRM master
 ssh -p 2222 kiosk@localhost              # from another machine, or a
                                           # session opened before switching
-QT_QPA_PLATFORM=eglfs QT_QPA_EGLFS_ALWAYS_SET_MODE=1 ./build/hello-kiosk
+QT_QPA_PLATFORM=eglfs QT_QPA_EGLFS_ALWAYS_SET_MODE=1 ./build/app/hello-kiosk
 ```
 
 Ctrl+C the app, then Ctrl+Alt+F1 (or F2) to get back to your desktop. If the

@@ -48,7 +48,7 @@ printf '%s\n' "${DEVICE_ARGS[@]:-}"
 docker run --rm -it \
   --name "$CONTAINER" \
   -p 2222:22 \
-  -v "$(pwd)/app:/home/kiosk/app" \
+  -v "$(pwd):/home/kiosk/kiosk" \
   "${DEVICE_ARGS[@]}" \
   "${GROUP_ARGS[@]}" \
   "$IMAGE"
