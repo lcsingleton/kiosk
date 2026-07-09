@@ -1,0 +1,6 @@
+# Microchip MCP2221A — USB HID -> I2C/GPIO bridge, bound by the in-kernel
+# hid-mcp2221 driver. Requires an "i2c" group (groupadd i2c) that the kiosk
+# user is a member of, and i2c-dev loaded (see i2c-dev.conf).
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="04d8", ATTRS{idProduct}=="00dd", MODE="0660", GROUP="i2c"
+SUBSYSTEM=="i2c-dev", MODE="0660", GROUP="i2c"
+SUBSYSTEM=="gpio", MODE="0660", GROUP="i2c"

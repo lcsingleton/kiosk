@@ -1,0 +1,28 @@
+# Build output
+app/build/
+build/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*_autogen/
+.qt/
+
+# Compiled objects
+*.o
+*.obj
+*.so
+*.a
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+
+# Claude Code local settings
+.claude/settings.local.json
