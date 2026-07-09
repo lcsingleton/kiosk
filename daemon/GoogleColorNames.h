@@ -18,27 +18,30 @@
 // resolved hex doesn't match what you see in Google Calendar's UI for a
 // given name, override it in daemon-config.json with a literal hex instead
 // (any config color already accepts a plain "#rrggbb" value).
-namespace GoogleColorNames {
+namespace GoogleColorNames
+{
 
-inline const QHash<QString, QString> &eventColorIds() {
-    static const QHash<QString, QString> table{
-        {"lavender", "1"}, {"sage", "2"}, {"grape", "3"}, {"flamingo", "4"},
-        {"banana", "5"}, {"tangerine", "6"}, {"peacock", "7"}, {"graphite", "8"},
-        {"blueberry", "9"}, {"basil", "10"}, {"tomato", "11"},
-    };
-    return table;
+inline const QHash<QString, QString> &eventColorIds()
+{
+	static const QHash<QString, QString> table{
+		{ "lavender", "1" },  { "sage", "2" },		{ "grape", "3" },	{ "flamingo", "4" },
+		{ "banana", "5" },	  { "tangerine", "6" }, { "peacock", "7" }, { "graphite", "8" },
+		{ "blueberry", "9" }, { "basil", "10" },	{ "tomato", "11" },
+	};
+	return table;
 }
 
-inline const QHash<QString, QString> &calendarColorIds() {
-    static const QHash<QString, QString> table{
-        {"cocoa", "1"}, {"flamingo", "2"}, {"tomato", "3"}, {"tangerine", "4"},
-        {"pumpkin", "5"}, {"mustard", "6"}, {"eucalyptus", "7"}, {"pistachio", "8"},
-        {"avocado", "9"}, {"cypress", "10"}, {"peacock", "11"}, {"cobalt", "12"},
-        {"blueberry", "13"}, {"lavender", "14"}, {"wisteria", "15"}, {"graphite", "16"},
-        {"birch", "17"}, {"radicchio", "18"}, {"cherryblossom", "19"}, {"grape", "20"},
-        {"amethyst", "21"}, {"beetroot", "22"}, {"rosewood", "23"},
-    };
-    return table;
+inline const QHash<QString, QString> &calendarColorIds()
+{
+	static const QHash<QString, QString> table{
+		{ "cocoa", "1" },	   { "flamingo", "2" },	  { "tomato", "3" },		 { "tangerine", "4" },
+		{ "pumpkin", "5" },	   { "mustard", "6" },	  { "eucalyptus", "7" },	 { "pistachio", "8" },
+		{ "avocado", "9" },	   { "cypress", "10" },	  { "peacock", "11" },		 { "cobalt", "12" },
+		{ "blueberry", "13" }, { "lavender", "14" },  { "wisteria", "15" },		 { "graphite", "16" },
+		{ "birch", "17" },	   { "radicchio", "18" }, { "cherryblossom", "19" }, { "grape", "20" },
+		{ "amethyst", "21" },  { "beetroot", "22" },  { "rosewood", "23" },
+	};
+	return table;
 }
 
 } // namespace GoogleColorNames

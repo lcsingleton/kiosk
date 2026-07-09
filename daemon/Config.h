@@ -8,9 +8,10 @@
 // calendar's own fallback color, used for an event that has no per-event
 // color override, so it still visually symbolizes which calendar it came
 // from even when no configured person matches it.
-struct CalendarConfig {
-    QString calendarId;
-    QString color;
+struct CalendarConfig
+{
+	QString calendarId;
+	QString color;
 };
 
 // One column/person in the day-grid. `color` (hex or a Google color name)
@@ -18,20 +19,22 @@ struct CalendarConfig {
 // per-event color if set, else its calendar's fallback color above) to
 // decide which person's column an event belongs to — not by which calendar
 // it was fetched from.
-struct PersonConfig {
-    QString person;
-    QString color;
+struct PersonConfig
+{
+	QString person;
+	QString color;
 };
 
-struct Config {
-    QString serviceAccountKeyPath;
-    int pollIntervalSeconds = 120;
-    QString socketPath;
-    QString snapshotPath;
-    QVector<CalendarConfig> calendars;
-    QVector<PersonConfig> people;
+struct Config
+{
+	QString serviceAccountKeyPath;
+	int pollIntervalSeconds = 120;
+	QString socketPath;
+	QString snapshotPath;
+	QVector<CalendarConfig> calendars;
+	QVector<PersonConfig> people;
 
-    // Reads and validates a config JSON file at `path`. On failure, returns
-    // false and fills `error` with a message suitable for logging as-is.
-    static bool load(const QString &path, Config &out, QString &error);
+	// Reads and validates a config JSON file at `path`. On failure, returns
+	// false and fills `error` with a message suitable for logging as-is.
+	static bool load( const QString &path, Config &out, QString &error );
 };
