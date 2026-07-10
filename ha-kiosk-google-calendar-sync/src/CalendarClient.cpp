@@ -189,7 +189,15 @@ void CalendarClient::patchEvent( const QString &calendarId, const QString &event
 				return;
 			}
 
-			QNetworkRequest request( eventUrl( calendarId, eventId ) );
+			// Explicit rather than relying on the API's own default: a PATCH
+			// that touches attendees[] (invite/uninvite) must never trigger
+			// Google's guest-notification emails.
+			QUrl url = eventUrl( calendarId, eventId );
+			QUrlQuery query;
+			query.addQueryItem( "sendUpdates", "none" );
+			url.setQuery( query );
+
+			QNetworkRequest request( url );
 			request.setRawHeader( "Authorization", "Bearer " + token.toUtf8() );
 			request.setHeader( QNetworkRequest::ContentTypeHeader, "application/json" );
 			if ( !etag.isEmpty() )

@@ -57,6 +57,10 @@ class CalendarBridge : public QObject
 									 const QString &newSummary );
 	Q_INVOKABLE QString changeEventLocation( const QString &calendarId, const QString &eventId,
 											 const QString &etag, const QString &newLocation );
+	Q_INVOKABLE QString inviteParticipant( const QString &calendarId, const QString &eventId,
+										   const QString &etag, const QString &person );
+	Q_INVOKABLE QString uninviteParticipant( const QString &calendarId, const QString &eventId,
+											 const QString &etag, const QString &person );
 
   signals:
 	void snapshotChanged();

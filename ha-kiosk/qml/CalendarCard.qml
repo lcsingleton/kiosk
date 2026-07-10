@@ -39,6 +39,17 @@ DashboardCard {
                         Text { text: modelData.icon; font.pixelSize: 16 }
                         Text { text: modelData.label; color: "#c7d2e3"; font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WordWrap }
                         Text { text: modelData.time; color: "#8296b8"; font.pixelSize: 12; visible: !!modelData.time }
+                        AttendeeBadges {
+                            attendees: modelData.attendees || []
+                            dashboardData: dashboardData
+                            eventId: modelData.eventId
+                            onToggled: (person, invited) => {
+                                if (invited)
+                                    calendarBridge.inviteParticipant(modelData.calendarId, modelData.eventId, modelData.etag, person)
+                                else
+                                    calendarBridge.uninviteParticipant(modelData.calendarId, modelData.eventId, modelData.etag, person)
+                            }
+                        }
                     }
                 }
             }
@@ -46,7 +57,12 @@ DashboardCard {
             AgendaTimeline {
                 width: parent.width
                 people: dashboardData.people
-                items: dashboardData.todaySchedule
+                // effectiveTodaySchedule(), not the raw todaySchedule
+                // property: it overlays any pending invite/uninvite tap so
+                // a person's column shows/hides immediately instead of
+                // waiting for the daemon's round trip and next snapshot.
+                items: dashboardData.effectiveTodaySchedule()
+                dashboardData: dashboardData
                 startHour: 6
                 endHour: 22
                 rowHeight: 30
@@ -54,6 +70,12 @@ DashboardCard {
                 gutterWidth: 44
                 onEventTapped: item => editRequested(item, "event")
                 onEmptySlotTapped: (person, hour) => createRequested(person, hour)
+                onAttendeeToggled: (item, person, invited) => {
+                    if (invited)
+                        calendarBridge.inviteParticipant(item.calendarId, item.eventId, item.etag, person)
+                    else
+                        calendarBridge.uninviteParticipant(item.calendarId, item.eventId, item.etag, person)
+                }
             }
         }
 
@@ -94,6 +116,16 @@ DashboardCard {
                             delegate: Item {
                                 width: parent.width
                                 height: weekendRow.implicitHeight
+                                // Declared before weekendRow so its badges'
+                                // own MouseAreas (added below, on top in
+                                // z-order) intercept a tap before this
+                                // whole-row one does — same layering
+                                // AgendaTimeline uses for its chips over its
+                                // background pan MouseArea.
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: editRequested(modelData, "title")
+                                }
                                 RowLayout {
                                     id: weekendRow
                                     width: parent.width
@@ -107,10 +139,18 @@ DashboardCard {
                                         Layout.fillWidth: true
                                     }
                                     Text { text: modelData.time; color: "#8296b8"; font.pixelSize: 11 }
-                                }
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onClicked: editRequested(modelData, "title")
+                                    AttendeeBadges {
+                                        size: 16
+                                        attendees: modelData.attendees || []
+                                        dashboardData: dashboardData
+                                        eventId: modelData.eventId
+                                        onToggled: (person, invited) => {
+                                            if (invited)
+                                                calendarBridge.inviteParticipant(modelData.calendarId, modelData.eventId, modelData.etag, person)
+                                            else
+                                                calendarBridge.uninviteParticipant(modelData.calendarId, modelData.eventId, modelData.etag, person)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -130,6 +170,12 @@ DashboardCard {
                     delegate: Item {
                         width: parent.width
                         height: upcomingRow.implicitHeight
+                        // Declared before upcomingRow — same reasoning as
+                        // the weekend delegate above.
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: editRequested(modelData, "title")
+                        }
                         RowLayout {
                             id: upcomingRow
                             width: parent.width
@@ -150,10 +196,18 @@ DashboardCard {
                                 Text { text: modelData.title; color: "#eef2f9"; font.pixelSize: 13; wrapMode: Text.WordWrap; width: parent.width }
                                 Text { text: modelData.time; color: "#8296b8"; font.pixelSize: 11; visible: !!modelData.time }
                             }
-                        }
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: editRequested(modelData, "title")
+                            AttendeeBadges {
+                                size: 16
+                                attendees: modelData.attendees || []
+                                dashboardData: dashboardData
+                                eventId: modelData.eventId
+                                onToggled: (person, invited) => {
+                                    if (invited)
+                                        calendarBridge.inviteParticipant(modelData.calendarId, modelData.eventId, modelData.etag, person)
+                                    else
+                                        calendarBridge.uninviteParticipant(modelData.calendarId, modelData.eventId, modelData.etag, person)
+                                }
+                            }
                         }
                     }
                 }

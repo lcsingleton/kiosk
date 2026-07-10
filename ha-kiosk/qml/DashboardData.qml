@@ -2,8 +2,11 @@ import QtQuick
 
 // Mock data standing in for the real Home Assistant / Ecowitt / calendar
 // integrations. Shapes here are what the cards in main.qml bind against —
-// swap the source, keep the fields.
-QtObject {
+// swap the source, keep the fields. Item rather than QtObject solely so the
+// attendeeOverrides expiry Timer below has a default property to attach to
+// — never added to a visual tree, so nothing else about being an Item
+// applies.
+Item {
     // One system at a time in practice (heating XOR cooling), so it's
     // modeled — and displayed — as a single climate system, not two.
     property var climate: ({
@@ -49,6 +52,113 @@ QtObject {
     }
 
     property var upcoming: calendarBridge.upcoming
+
+    // Optimistic attendee-invite state, shared by every AttendeeBadges
+    // instance (today highlights, weekend/upcoming rows, agenda chips, the
+    // edit popup) rather than each keeping its own copy — otherwise tapping
+    // "invite" in the popup would only flip that one popup's badge, and the
+    // same event's row in weekend/upcoming would sit stale until the
+    // daemon's debounce window + PATCH + next snapshot poll all land,
+    // several seconds later. Keyed by attendeeOverrideKey(eventId, person).
+    property var attendeeOverrides: ({})
+
+    function attendeeOverrideKey(eventId, person) {
+        return JSON.stringify([eventId, person])
+    }
+
+    function setAttendeeOverride(eventId, person, invited) {
+        const next = Object.assign({}, attendeeOverrides)
+        // expiresAt: a safety valve for a write that silently failed — no
+        // real snapshot will ever arrive to reconcile it otherwise.
+        next[attendeeOverrideKey(eventId, person)] = { invited: invited, expiresAt: Date.now() + 10000 }
+        attendeeOverrides = next
+    }
+
+    function attendeeOverride(eventId, person) {
+        const entry = attendeeOverrides[attendeeOverrideKey(eventId, person)]
+        return entry ? entry.invited : undefined
+    }
+
+    // Called whenever fresh attendee data for one event arrives (any
+    // AttendeeBadges showing that event will trigger this) — drops any
+    // override the real data now agrees with.
+    function reconcileAttendeeOverrides(eventId, attendees) {
+        if (!attendees || !attendees.length)
+            return
+        let changed = false
+        const next = Object.assign({}, attendeeOverrides)
+        for (const a of attendees) {
+            const k = attendeeOverrideKey(eventId, a.name)
+            if (k in next && next[k].invited === a.invited) {
+                delete next[k]
+                changed = true
+            }
+        }
+        if (changed)
+            attendeeOverrides = next
+    }
+
+    Timer {
+        interval: 1000
+        running: true
+        repeat: true
+        onTriggered: {
+            const now = Date.now()
+            let changed = false
+            const next = Object.assign({}, attendeeOverrides)
+            for (const k in next) {
+                if (next[k].expiresAt <= now) {
+                    delete next[k]
+                    changed = true
+                }
+            }
+            if (changed)
+                attendeeOverrides = next
+        }
+    }
+
+    // The day-grid's columns are which person a todaySchedule row belongs
+    // to — a side effect the daemon computes from the real attendee list
+    // (SnapshotBuilder::resolveAttendedPeople), not a flag on the row
+    // itself. So showing an invite/uninvite tap's effect on the grid before
+    // the real backend round-trips means synthesizing (or dropping) a row
+    // client-side: clone an existing row for that event onto the newly
+    // invited person's column, or filter out the uninvited person's row.
+    // Reconciles away on its own once a real snapshot agrees, the same as
+    // attendeeOverrides above.
+    function effectiveTodaySchedule() {
+        if (Object.keys(attendeeOverrides).length === 0)
+            return todaySchedule
+
+        const rowsByEvent = {}
+        for (const row of todaySchedule) {
+            if (!rowsByEvent[row.eventId])
+                rowsByEvent[row.eventId] = []
+            rowsByEvent[row.eventId].push(row)
+        }
+
+        let result = todaySchedule.slice()
+        for (const key in attendeeOverrides) {
+            const [eventId, person] = JSON.parse(key)
+            const invited = attendeeOverrides[key].invited
+            const existingRows = rowsByEvent[eventId] || []
+            const personRow = existingRows.find(r => r.person === person)
+
+            if (invited && !personRow) {
+                const template = existingRows[0]
+                if (template) {
+                    const personInfo = people.find(p => p.name === person)
+                    result.push(Object.assign({}, template, {
+                        person: person,
+                        color: personInfo ? personInfo.color : template.color
+                    }))
+                }
+            } else if (!invited && personRow) {
+                result = result.filter(r => !(r.eventId === eventId && r.person === person))
+            }
+        }
+        return result
+    }
 
     property var shopping: [
         { item: "Milk", done: false },

@@ -13,6 +13,8 @@ constexpr auto RescheduleEvent = "RescheduleEvent";
 constexpr auto CancelEvent = "CancelEvent";
 constexpr auto RenameEvent = "RenameEvent";
 constexpr auto ChangeEventLocation = "ChangeEventLocation";
+constexpr auto InviteParticipant = "InviteParticipant";
+constexpr auto UninviteParticipant = "UninviteParticipant";
 } // namespace CommandAction
 
 // One line of NDJSON from the kiosk app:
@@ -68,6 +70,18 @@ struct ChangeEventLocationPayload
 	QString newLocation;
 
 	static ChangeEventLocationPayload fromJson( const QJsonObject &obj );
+	QJsonObject toJson() const;
+};
+
+// Shared by InviteParticipant/UninviteParticipant: `person` is a configured
+// person's name (e.g. "Mum"), not a raw email address — the daemon resolves
+// which address(es) that refers to itself, same boundary as
+// CalendarBridge's `people` (name/color only, no emails reach the UI).
+struct ParticipantPayload
+{
+	QString person;
+
+	static ParticipantPayload fromJson( const QJsonObject &obj );
 	QJsonObject toJson() const;
 };
 

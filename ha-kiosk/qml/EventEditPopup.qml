@@ -3,8 +3,8 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 // One popup for every touch interaction the calendar supports — schedule,
-// rename, reschedule, change location, invite, cancel — rather than a
-// single form with one "Save": each action button fires its own command
+// rename, reschedule, change location, invite/uninvite, cancel — rather
+// than a single form with one "Save": each action button fires its own command
 // immediately, using whatever etag is currently bound (kept fresh by the
 // caller re-assigning `event` whenever the snapshot updates while this is
 // open). Batching several field edits behind one Save would let a stale
@@ -20,12 +20,17 @@ Popup {
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     padding: 20
 
-    // { calendarId, eventId, etag, title, startIso, endIso } for edit mode;
-    // isNew + newCalendarId + newStartHour drive create mode instead.
+    // { calendarId, eventId, etag, title, startIso, endIso, attendees } for
+    // edit mode; isNew + newCalendarId + newStartHour drive create mode
+    // instead (attendees is meaningless there — nothing to invite yet).
     property var event: null
     property bool isNew: false
     property string newCalendarId: ""
     property real newStartHour: 9
+    // Passed through to AttendeeBadges so a tap here shows up immediately
+    // wherever else this event's badges are showing (weekend/upcoming row,
+    // agenda chip) — see AttendeeBadges.qml.
+    property var dashboardData: null
 
     background: Rectangle {
         color: "#101a2e"
@@ -136,6 +141,24 @@ Popup {
                         calendarBridge.rescheduleEvent(popup.event.calendarId, popup.event.eventId,
                                                         popup.event.etag, newStart.toISOString(), newEnd.toISOString())
                     }
+                }
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            visible: !popup.isNew
+            Text { text: "Attendees"; color: "#8296b8"; font.pixelSize: 13 }
+            AttendeeBadges {
+                attendees: (popup.event && popup.event.attendees) || []
+                dashboardData: popup.dashboardData
+                eventId: popup.event ? popup.event.eventId : ""
+                onToggled: (person, invited) => {
+                    if (invited)
+                        calendarBridge.inviteParticipant(popup.event.calendarId, popup.event.eventId, popup.event.etag, person)
+                    else
+                        calendarBridge.uninviteParticipant(popup.event.calendarId, popup.event.eventId, popup.event.etag, person)
                 }
             }
         }

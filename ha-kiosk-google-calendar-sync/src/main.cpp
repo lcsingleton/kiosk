@@ -167,7 +167,7 @@ int main( int argc, char *argv[] )
 	const int pollIntervalMs = qMax( 1, config.pollIntervalSeconds ) * 1000;
 
 	auto pollTimer = std::make_shared<QTimer>();
-	auto commandServer = std::make_shared<CommandServer>( client );
+	auto commandServer = std::make_shared<CommandServer>( client, config.people );
 
 	// Color resolution needs one network round trip (the live /colors
 	// palettes) before anything else can run, so the rest of startup —

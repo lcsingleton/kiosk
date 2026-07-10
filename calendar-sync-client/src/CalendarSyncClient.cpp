@@ -98,6 +98,20 @@ QString CalendarSyncClient::changeEventLocation( const QString &calendarId, cons
 	return sendCommand( QStringLiteral( "ChangeEventLocation" ), calendarId, eventId, etag, payload.toJson() );
 }
 
+QString CalendarSyncClient::inviteParticipant( const QString &calendarId, const QString &eventId,
+											   const QString &etag, const QString &person )
+{
+	const ParticipantPayload payload{ person };
+	return sendCommand( QStringLiteral( "InviteParticipant" ), calendarId, eventId, etag, payload.toJson() );
+}
+
+QString CalendarSyncClient::uninviteParticipant( const QString &calendarId, const QString &eventId,
+												 const QString &etag, const QString &person )
+{
+	const ParticipantPayload payload{ person };
+	return sendCommand( QStringLiteral( "UninviteParticipant" ), calendarId, eventId, etag, payload.toJson() );
+}
+
 void CalendarSyncClient::onReadyRead()
 {
 	m_recvBuffer += m_socket.readAll();

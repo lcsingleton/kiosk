@@ -31,9 +31,18 @@ Item {
     property real gutterWidth: 60
     property real overflowHourScale: 26 // px per hour of an event's own duration, outside the window
     property real minChipHeight: 16     // legibility floor for compressed/short events
+    // Passed straight through to each chip's AttendeeBadges — needed so an
+    // invite/uninvite tap here shows up immediately in every other place
+    // that same event's badges appear (see AttendeeBadges.qml). The grid
+    // itself never reads from this beyond that passthrough.
+    property var dashboardData: null
 
     signal eventTapped(var item)                  // one entry from `items`, tapped to edit
     signal emptySlotTapped(string person, real hour) // tapped empty space inside the live window, to create
+    // A chip's own attendee badge was tapped — grid stays free of any
+    // calendarBridge dependency (same as eventTapped/emptySlotTapped),
+    // caller performs the actual invite/uninvite.
+    signal attendeeToggled(var item, string person, bool invited)
 
     readonly property real colWidth: (width - gutterWidth) / Math.max(people.length, 1)
     readonly property real hourCount: endHour - startHour
@@ -371,6 +380,21 @@ Item {
                     font.bold: true
                     elide: Text.ElideRight
                     verticalAlignment: Text.AlignVCenter
+                }
+                // Only for a chip roomy enough to take a row of badges
+                // without fighting the centered title text above — a
+                // compressed (folded dead-time) or short chip skips them
+                // entirely rather than cramming them in.
+                AttendeeBadges {
+                    visible: !layout.compressed && parent.height >= 40 && (modelData.attendees || []).length > 0
+                    size: 12
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    anchors.margins: 3
+                    attendees: modelData.attendees || []
+                    dashboardData: grid.dashboardData
+                    eventId: modelData.eventId
+                    onToggled: (person, invited) => grid.attendeeToggled(modelData, person, invited)
                 }
             }
         }

@@ -11,8 +11,8 @@
 // Normalizes raw Calendar API v3 event JSON into the JSON shape
 // app/DashboardData.qml expects: todayHighlights, todaySchedule, weekend,
 // upcoming, people. Field names match DashboardData.qml's mock data
-// exactly; eventId/calendarId/etag/startIso/endIso are additive (existing
-// QML bindings ignore fields they don't reference).
+// exactly; eventId/calendarId/etag/startIso/endIso/attendees are additive
+// (existing QML bindings ignore fields they don't reference).
 //
 // Classification is by *who the event is tagged to*, not which calendar it
 // came from or what color it's been given: each of an event's
@@ -60,6 +60,13 @@ class SnapshotBuilder
 	// event doesn't also pull in the creator as a second match.
 	QVector<PersonMatch> resolveAttendedPeople( const QJsonObject &event ) const;
 	QString resolveFallbackAccent( const QString &calendarId, const QJsonObject &event ) const;
+	// One entry per configured person — { name, color, invited } — driving
+	// the invite/uninvite toggle badges in the UI. Unlike
+	// resolveAttendedPeople, this never falls back to the event's creator:
+	// it's a literal read of event.attendees[].email, since toggling a
+	// badge "off" is meant to actually remove that person from the guest
+	// list, not just unmatch a fallback.
+	QJsonArray attendeeStatus( const QJsonObject &event ) const;
 
 	QDate m_today;
 	QDate m_weekendSaturday;

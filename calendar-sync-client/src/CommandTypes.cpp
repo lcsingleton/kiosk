@@ -101,3 +101,15 @@ QJsonObject ChangeEventLocationPayload::toJson() const
 {
 	return QJsonObject{ { "newLocation", newLocation } };
 }
+
+ParticipantPayload ParticipantPayload::fromJson( const QJsonObject &obj )
+{
+	ParticipantPayload p;
+	p.person = obj.value( "person" ).toString();
+	return p;
+}
+
+QJsonObject ParticipantPayload::toJson() const
+{
+	return QJsonObject{ { "person", person } };
+}

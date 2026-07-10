@@ -25,7 +25,8 @@ Window {
             etag: item.etag,
             title: item[titleKey],
             startIso: item.startIso,
-            endIso: item.endIso
+            endIso: item.endIso,
+            attendees: item.attendees
         }
         eventEditPopup.open()
     }
@@ -46,11 +47,11 @@ Window {
     // advanced past.
     function findLiveEvent(eventId) {
         let found = data.todaySchedule.find(e => e.eventId === eventId)
-        if (found) return { calendarId: found.calendarId, eventId: found.eventId, etag: found.etag, title: found.event, startIso: found.startIso, endIso: found.endIso }
+        if (found) return { calendarId: found.calendarId, eventId: found.eventId, etag: found.etag, title: found.event, startIso: found.startIso, endIso: found.endIso, attendees: found.attendees }
         found = data.weekend.find(e => e.eventId === eventId)
-        if (found) return { calendarId: found.calendarId, eventId: found.eventId, etag: found.etag, title: found.title, startIso: found.startIso, endIso: found.endIso }
+        if (found) return { calendarId: found.calendarId, eventId: found.eventId, etag: found.etag, title: found.title, startIso: found.startIso, endIso: found.endIso, attendees: found.attendees }
         found = data.upcoming.find(e => e.eventId === eventId)
-        if (found) return { calendarId: found.calendarId, eventId: found.eventId, etag: found.etag, title: found.title, startIso: found.startIso, endIso: found.endIso }
+        if (found) return { calendarId: found.calendarId, eventId: found.eventId, etag: found.etag, title: found.title, startIso: found.startIso, endIso: found.endIso, attendees: found.attendees }
         return null
     }
 
@@ -209,6 +210,7 @@ Window {
         EventEditPopup {
             id: eventEditPopup
             parent: canvas
+            dashboardData: data
         }
     }
 }

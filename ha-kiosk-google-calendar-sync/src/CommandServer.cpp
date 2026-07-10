@@ -6,10 +6,41 @@
 #include <QJsonDocument>
 #include <QLocalSocket>
 #include <QPointer>
+#include <QSet>
+#include <QTimer>
 
-CommandServer::CommandServer( CalendarClient *client, QObject *parent )
+namespace
+{
+bool personHasEmail( const PersonConfig &p, const QString &email )
+{
+	for ( const QString &candidate : p.emails )
+	{
+		if ( candidate.compare( email, Qt::CaseInsensitive ) == 0 )
+			return true;
+	}
+	return false;
+}
+
+// A few taps landing within this long of each other collapse into one
+// GET+PATCH — deliberately generous so it comfortably absorbs "tap Mum, tap
+// Dad, tap the kids" as one round trip. The UI doesn't wait on this: it
+// shows each tap's new state optimistically (see AttendeeBadges.qml), so
+// this only trades off wire efficiency against how long a *wrong* optimistic
+// guess could stick around, not perceived responsiveness.
+constexpr int kAttendeeDebounceMs = 2000;
+
+QString attendeeBatchKey( const QString &calendarId, const QString &eventId )
+{
+	return calendarId + QLatin1Char( '\x1f' ) + eventId;
+}
+} // namespace
+
+CommandServer::CommandServer( CalendarClient *client, const QVector<PersonConfig> &people, QObject *parent )
 	: QObject( parent ), m_client( client )
 {
+	for ( const PersonConfig &p : people )
+		m_peopleByName.insert( p.person, p );
+
 	connect( &m_server, &QLocalServer::newConnection, this, &CommandServer::onNewConnection );
 
 	m_handlers[CommandAction::ScheduleEvent] =
@@ -24,6 +55,14 @@ CommandServer::CommandServer( CalendarClient *client, QObject *parent )
 	m_handlers[CommandAction::ChangeEventLocation] = [this]( const Command &c,
 															 std::function<void( Result )> reply ) {
 		handleChangeLocation( c, reply );
+	};
+	m_handlers[CommandAction::InviteParticipant] = [this]( const Command &c,
+														   std::function<void( Result )> reply ) {
+		handleInviteParticipant( c, reply );
+	};
+	m_handlers[CommandAction::UninviteParticipant] = [this]( const Command &c,
+															 std::function<void( Result )> reply ) {
+		handleUninviteParticipant( c, reply );
 	};
 }
 
@@ -210,4 +249,121 @@ void CommandServer::patchField( const Command &cmd, const QString &jsonKey, cons
 							  reply( code.isEmpty() ? Result::success( cmd.commandId )
 													: Result::failure( cmd.commandId, code, message ) );
 						  } );
+}
+
+void CommandServer::handleInviteParticipant( const Command &cmd, std::function<void( Result )> reply )
+{
+	const auto payload = ParticipantPayload::fromJson( cmd.payload );
+	const auto personIt = m_peopleByName.constFind( payload.person );
+	if ( payload.person.isEmpty() || personIt == m_peopleByName.constEnd() || personIt->emails.isEmpty() )
+	{
+		reply( Result::failure( cmd.commandId, QStringLiteral( "invalid_request" ),
+								QStringLiteral( "InviteParticipant requires a known payload.person" ) ) );
+		return;
+	}
+	queueAttendeeChange( cmd, payload.person, true, reply );
+}
+
+void CommandServer::handleUninviteParticipant( const Command &cmd, std::function<void( Result )> reply )
+{
+	const auto payload = ParticipantPayload::fromJson( cmd.payload );
+	const auto personIt = m_peopleByName.constFind( payload.person );
+	if ( payload.person.isEmpty() || personIt == m_peopleByName.constEnd() )
+	{
+		reply( Result::failure( cmd.commandId, QStringLiteral( "invalid_request" ),
+								QStringLiteral( "UninviteParticipant requires a known payload.person" ) ) );
+		return;
+	}
+	queueAttendeeChange( cmd, payload.person, false, reply );
+}
+
+void CommandServer::queueAttendeeChange( const Command &cmd, const QString &person, bool invited,
+										 std::function<void( Result )> reply )
+{
+	const QString key = attendeeBatchKey( cmd.calendarId, cmd.eventId );
+
+	PendingAttendeeBatch &batch = m_pendingAttendeeBatches[key];
+	batch.calendarId = cmd.calendarId;
+	batch.eventId = cmd.eventId;
+	batch.etag = cmd.etag;
+	batch.deltas.insert( person, invited ); // a later tap for the same person within the window wins
+	batch.pending.append( { cmd.commandId, reply } );
+
+	QTimer *&timer = m_attendeeDebounceTimers[key];
+	if ( !timer )
+	{
+		timer = new QTimer( this );
+		timer->setSingleShot( true );
+		connect( timer, &QTimer::timeout, this, [this, key]() { flushAttendeeBatch( key ); } );
+	}
+	timer->start( kAttendeeDebounceMs ); // restarts the wait if one's already running
+}
+
+void CommandServer::flushAttendeeBatch( const QString &key )
+{
+	const auto it = m_pendingAttendeeBatches.constFind( key );
+	if ( it == m_pendingAttendeeBatches.constEnd() )
+		return;
+	const PendingAttendeeBatch batch = it.value();
+	m_pendingAttendeeBatches.remove( key );
+	if ( QTimer *timer = m_attendeeDebounceTimers.take( key ) )
+		timer->deleteLater();
+
+	// attendees[] is replaced wholesale by PATCH, so the current list has
+	// to be read first, then every accumulated delta applied to it at
+	// once, rather than one read-modify-write cycle per delta.
+	m_client->getEvent(
+		batch.calendarId, batch.eventId,
+		[this, batch]( QJsonObject event, QString code, QString message ) {
+			if ( !code.isEmpty() )
+			{
+				for ( const PendingAttendeeReply &p : batch.pending )
+					p.reply( Result::failure( p.commandId, code, message ) );
+				return;
+			}
+
+			QJsonArray next;
+			QSet<QString> stillPresent; // person names already kept in `next`
+			for ( const QJsonValue &v : event.value( "attendees" ).toArray() )
+			{
+				const QString email = v.toObject().value( "email" ).toString();
+				QString matchedPerson;
+				for ( auto deltaIt = batch.deltas.constBegin(); deltaIt != batch.deltas.constEnd(); ++deltaIt )
+				{
+					if ( personHasEmail( m_peopleByName.value( deltaIt.key() ), email ) )
+					{
+						matchedPerson = deltaIt.key();
+						break;
+					}
+				}
+				if ( matchedPerson.isEmpty() )
+				{
+					next.append( v ); // an attendee no tap in this batch touched
+					continue;
+				}
+				stillPresent.insert( matchedPerson );
+				if ( batch.deltas.value( matchedPerson ) )
+					next.append( v ); // staying invited
+				// else: uninvited — dropped from `next`
+			}
+			for ( auto deltaIt = batch.deltas.constBegin(); deltaIt != batch.deltas.constEnd(); ++deltaIt )
+			{
+				if ( deltaIt.value() && !stillPresent.contains( deltaIt.key() ) )
+					next.append( QJsonObject{
+						{ "email", m_peopleByName.value( deltaIt.key() ).emails.first() } } );
+			}
+
+			QJsonObject patchBody;
+			patchBody["attendees"] = next;
+			m_client->patchEvent(
+				batch.calendarId, batch.eventId, batch.etag, patchBody,
+				[batch]( QJsonObject, QString patchCode, QString patchMessage ) {
+					for ( const PendingAttendeeReply &p : batch.pending )
+					{
+						p.reply( patchCode.isEmpty()
+									 ? Result::success( p.commandId )
+									 : Result::failure( p.commandId, patchCode, patchMessage ) );
+					}
+				} );
+		} );
 }

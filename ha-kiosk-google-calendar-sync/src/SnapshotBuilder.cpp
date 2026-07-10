@@ -89,6 +89,31 @@ QVector<SnapshotBuilder::PersonMatch> SnapshotBuilder::resolveAttendedPeople( co
 	return matches;
 }
 
+QJsonArray SnapshotBuilder::attendeeStatus( const QJsonObject &event ) const
+{
+	const QJsonArray attendees = event.value( "attendees" ).toArray();
+	QJsonArray result;
+	for ( const PersonConfig &p : m_people )
+	{
+		bool invited = false;
+		for ( const QJsonValue &v : attendees )
+		{
+			const QString email = v.toObject().value( "email" ).toString();
+			if ( !email.isEmpty() && personHasEmail( p, email ) )
+			{
+				invited = true;
+				break;
+			}
+		}
+		QJsonObject o;
+		o["name"] = p.person;
+		o["color"] = p.color;
+		o["invited"] = invited;
+		result.append( o );
+	}
+	return result;
+}
+
 QString SnapshotBuilder::resolveFallbackAccent( const QString &calendarId, const QJsonObject &event ) const
 {
 	const QString colorId = event.value( "colorId" ).toString();
@@ -139,6 +164,7 @@ void SnapshotBuilder::classify( const QString &calendarId, const QJsonObject &ev
 	// here — this is only reached for weekend/upcoming (a fallback, so any
 	// match already short-circuits it below) or an unmatched event.
 	const QString fallbackAccent = resolveFallbackAccent( calendarId, event );
+	const QJsonArray attendees = attendeeStatus( event );
 
 	if ( date == m_today )
 	{
@@ -146,10 +172,19 @@ void SnapshotBuilder::classify( const QString &calendarId, const QJsonObject &ev
 		{
 			// All-day/family-wide items aren't attributed to one person's
 			// column regardless of match — same as the original mock.
+			// eventId/calendarId/etag/attendees let the UI's invite/uninvite
+			// badges identify and mutate this event despite it having no
+			// day-grid column of its own.
 			QJsonObject o;
 			o["icon"] = QStringLiteral( "📌" );
 			o["label"] = summary;
 			o["time"] = QString();
+			o["eventId"] = eventId;
+			o["calendarId"] = calendarId;
+			o["etag"] = etag;
+			o["startIso"] = startIso;
+			o["endIso"] = endIso;
+			o["attendees"] = attendees;
 			m_todayHighlights.append( o );
 		}
 		else
@@ -174,6 +209,7 @@ void SnapshotBuilder::classify( const QString &calendarId, const QJsonObject &ev
 				o["etag"] = etag;
 				o["startIso"] = startIso;
 				o["endIso"] = endIso;
+				o["attendees"] = attendees;
 				m_todaySchedule.append( o );
 			}
 		}
@@ -198,6 +234,7 @@ void SnapshotBuilder::classify( const QString &calendarId, const QJsonObject &ev
 		o["etag"] = etag;
 		o["startIso"] = startIso;
 		o["endIso"] = endIso;
+		o["attendees"] = attendees;
 		m_weekend.append( o );
 		return;
 	}
@@ -215,6 +252,7 @@ void SnapshotBuilder::classify( const QString &calendarId, const QJsonObject &ev
 		o["etag"] = etag;
 		o["startIso"] = startIso;
 		o["endIso"] = endIso;
+		o["attendees"] = attendees;
 		m_upcoming.append( o );
 	}
 	// date < today: outside the requested fetch window in practice, ignore.

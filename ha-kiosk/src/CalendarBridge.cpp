@@ -115,3 +115,19 @@ QString CalendarBridge::changeEventLocation( const QString &calendarId, const QS
 	m_pendingWhat.insert( commandId, QStringLiteral( "Changing location" ) );
 	return commandId;
 }
+
+QString CalendarBridge::inviteParticipant( const QString &calendarId, const QString &eventId,
+										   const QString &etag, const QString &person )
+{
+	const QString commandId = m_syncClient.inviteParticipant( calendarId, eventId, etag, person );
+	m_pendingWhat.insert( commandId, QStringLiteral( "Inviting %1" ).arg( person ) );
+	return commandId;
+}
+
+QString CalendarBridge::uninviteParticipant( const QString &calendarId, const QString &eventId,
+											 const QString &etag, const QString &person )
+{
+	const QString commandId = m_syncClient.uninviteParticipant( calendarId, eventId, etag, person );
+	m_pendingWhat.insert( commandId, QStringLiteral( "Uninviting %1" ).arg( person ) );
+	return commandId;
+}
