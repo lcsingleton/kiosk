@@ -1,9 +1,8 @@
 import QtQuick
 
-// A leaner alternative to AgendaGrid.qml. Every event lives in exactly one
-// Repeater, bound directly to the stable `items` prop — never a filtered
-// copy used as a model (filtering only feeds the layout math, never the
-// Repeater itself).
+// Every event lives in exactly one Repeater, bound directly to the stable
+// `items` prop — never a filtered copy used as a model (filtering only
+// feeds the layout math, never the Repeater itself).
 //
 // Default rendering, for every event, is the same: dead-time-collapsed
 // overflow styling. buildTimeline sorts every event that's outside the

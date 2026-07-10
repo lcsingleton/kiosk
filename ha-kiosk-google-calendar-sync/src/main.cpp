@@ -203,8 +203,9 @@ int main( int argc, char *argv[] )
 							   .arg( p.person, warning );
 					continue;
 				}
-				qInfo().noquote() << QStringLiteral( "  %1 = \"%2\" -> %3" ).arg( p.person, p.color, hex );
-				resolvedPeople.append( { p.person, hex } );
+				qInfo().noquote() << QStringLiteral( "  %1 = \"%2\" -> %3 (tagged via %4)" )
+										  .arg( p.person, p.color, hex, p.emails.join( ", " ) );
+				resolvedPeople.append( { p.person, hex, p.emails } );
 			}
 
 			QHash<QString, QString> calendarFallbackHex;

@@ -12,8 +12,11 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 endif()
 include(GNUInstallDirs)
 
-# ha-kiosk links against the calendar-sync-client library target defined
-# under ha-kiosk-google-calendar-sync/lib, so that subdirectory must be
-# added first.
+# calendar-sync-client is a shared library consumed by both ha-kiosk (the
+# command-socket client) and ha-kiosk-google-calendar-sync (the daemon that
+# serves the other end of that socket), so it lives at the root, alongside
+# its two consumers, rather than nested under either one. Must be added
+# before both.
+add_subdirectory(calendar-sync-client)
 add_subdirectory(ha-kiosk-google-calendar-sync)
 add_subdirectory(ha-kiosk)

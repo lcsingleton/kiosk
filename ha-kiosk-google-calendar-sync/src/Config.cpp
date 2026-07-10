@@ -52,9 +52,16 @@ bool Config::load( const QString &path, Config &out, QString &error )
 		PersonConfig person;
 		person.person = p.value( "person" ).toString();
 		person.color = p.value( "color" ).toString();
-		if ( person.person.isEmpty() || person.color.isEmpty() )
+		for ( const QJsonValue &e : p.value( "emails" ).toArray() )
 		{
-			error = QStringLiteral( "config %1: every entry in \"people\" needs \"person\" and \"color\"" )
+			const QString email = e.toString();
+			if ( !email.isEmpty() )
+				person.emails.append( email );
+		}
+		if ( person.person.isEmpty() || person.color.isEmpty() || person.emails.isEmpty() )
+		{
+			error = QStringLiteral(
+						"config %1: every entry in \"people\" needs \"person\", \"color\", and a non-empty \"emails\"" )
 						.arg( path );
 			return false;
 		}

@@ -14,15 +14,21 @@ struct CalendarConfig
 	QString color;
 };
 
-// One column/person in the day-grid. `color` (hex or a Google color name)
-// is matched against each event's *resolved* effective color (its own
-// per-event color if set, else its calendar's fallback color above) to
-// decide which person's column an event belongs to — not by which calendar
-// it was fetched from.
+// One column/person in the day-grid. `emails` is matched against an
+// event's attendees[].email (falling back to its creator.email when no
+// attendee matches any configured person) to decide whose column an event
+// belongs to — see SnapshotBuilder::resolveAttendedPeople. A person can
+// list more than one address here: e.g. an alias tag added as a guest to
+// mark them on a multi-person event, alongside the real Google account
+// they actually create events from (matched via creator.email when they
+// made the event themselves and nobody tagged anyone specific). `color`
+// (hex or a Google color name) is purely that person's display accent; it
+// plays no part in identifying whose event this is.
 struct PersonConfig
 {
 	QString person;
 	QString color;
+	QVector<QString> emails;
 };
 
 struct Config

@@ -11,8 +11,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_BINDIR}"
 find_package(Qt6 REQUIRED COMPONENTS Core Network)
 find_package(OpenSSL REQUIRED)
 
-add_subdirectory(lib)
-
+# calendar-sync-client is added by the root CMakeLists.txt (it's a shared
+# sibling, not private to this target).
 add_executable(ha-kiosk-google-calendar-sync
     src/main.cpp
     src/Config.cpp

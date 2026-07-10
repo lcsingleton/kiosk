@@ -7,9 +7,9 @@
     { "calendarId": "family@example.com", "color": "#9085e9" }
   ],
   "people": [
-    { "person": "Sharon", "color": "#fbd75b" },
-    { "person": "Donald", "color": "#46d6db" },
-    { "person": "Mum", "color": "#3987e5" },
-    { "person": "Dad", "color": "#e66550" }
+    { "person": "Sharon", "color": "#fbd75b", "emails": ["kiosk-sync+sharon@your-project.iam.gserviceaccount.com"] },
+    { "person": "Donald", "color": "#46d6db", "emails": ["kiosk-sync+donald@your-project.iam.gserviceaccount.com"] },
+    { "person": "Mum", "color": "#3987e5", "emails": ["kiosk-sync+mum@your-project.iam.gserviceaccount.com", "mum@example.com"] },
+    { "person": "Dad", "color": "#e66550", "emails": ["kiosk-sync+dad@your-project.iam.gserviceaccount.com", "dad@example.com"] }
   ]
 }

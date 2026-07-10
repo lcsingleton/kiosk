@@ -19,6 +19,11 @@ tablet.
   socket the app talks to. Separate CMake target, same root build.
   [`ha-kiosk-google-calendar-sync/etc/`](ha-kiosk-google-calendar-sync/etc/)
   holds its example config.
+- [`calendar-sync-client/`](calendar-sync-client/) — the command-socket wire
+  protocol (types + a `QLocalSocket` client wrapper), shared between
+  `ha-kiosk` (client side) and the daemon's `CommandServer` (server side of
+  the same protocol). Lives at the root rather than nested under either
+  consumer, since both link it.
 - [`docker/`](docker/) + [`run.sh`](run.sh) — Debian 12 dev container (eglfs,
   SSH, I2C/USB tooling). Not a hardware-accurate clone of the tablet's Mali
   GPU — it uses whatever DRM/KMS device your dev box has (here: `amdgpu` via

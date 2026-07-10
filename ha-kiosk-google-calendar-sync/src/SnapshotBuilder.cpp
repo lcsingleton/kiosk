@@ -38,8 +38,58 @@ void SnapshotBuilder::addEvents( const QString &calendarId, const QJsonArray &ev
 	}
 }
 
-QString SnapshotBuilder::resolvePersonAndColor( const QString &calendarId, const QJsonObject &event,
-												QString &outPerson ) const
+namespace
+{
+bool personHasEmail( const PersonConfig &p, const QString &email )
+{
+	for ( const QString &candidate : p.emails )
+	{
+		if ( candidate.compare( email, Qt::CaseInsensitive ) == 0 )
+			return true;
+	}
+	return false;
+}
+} // namespace
+
+QVector<SnapshotBuilder::PersonMatch> SnapshotBuilder::resolveAttendedPeople( const QJsonObject &event ) const
+{
+	QVector<PersonMatch> matches;
+
+	for ( const QJsonValue &v : event.value( "attendees" ).toArray() )
+	{
+		const QString attendeeEmail = v.toObject().value( "email" ).toString();
+		if ( attendeeEmail.isEmpty() )
+			continue;
+		for ( const PersonConfig &p : m_people )
+		{
+			if ( personHasEmail( p, attendeeEmail ) )
+			{
+				matches.append( { p.person, p.color } );
+				break;
+			}
+		}
+	}
+	if ( !matches.isEmpty() )
+		return matches;
+
+	// Nobody was explicitly tagged as a guest — fall back to whoever
+	// created the event (e.g. a parent's own Google account), so their
+	// events still land in their own column by default.
+	const QString creatorEmail = event.value( "creator" ).toObject().value( "email" ).toString();
+	if ( creatorEmail.isEmpty() )
+		return matches;
+	for ( const PersonConfig &p : m_people )
+	{
+		if ( personHasEmail( p, creatorEmail ) )
+		{
+			matches.append( { p.person, p.color } );
+			break;
+		}
+	}
+	return matches;
+}
+
+QString SnapshotBuilder::resolveFallbackAccent( const QString &calendarId, const QJsonObject &event ) const
 {
 	const QString colorId = event.value( "colorId" ).toString();
 	QString effectiveHex;
@@ -47,19 +97,6 @@ QString SnapshotBuilder::resolvePersonAndColor( const QString &calendarId, const
 		effectiveHex = m_eventColorIdToHex.value( colorId );
 	else
 		effectiveHex = m_calendarFallbackHex.value( calendarId );
-
-	outPerson.clear();
-	if ( !effectiveHex.isEmpty() )
-	{
-		for ( const PersonConfig &p : m_people )
-		{
-			if ( p.color.compare( effectiveHex, Qt::CaseInsensitive ) == 0 )
-			{
-				outPerson = p.person;
-				return p.color;
-			}
-		}
-	}
 	return effectiveHex.isEmpty() ? QLatin1String( kNeutralAccent ) : effectiveHex;
 }
 
@@ -97,43 +134,56 @@ void SnapshotBuilder::classify( const QString &calendarId, const QJsonObject &ev
 	const QString startIso = allDay ? QString() : startDt.toString( Qt::ISODate );
 	const QString endIso = allDay ? QString() : endDt.toString( Qt::ISODate );
 
-	QString person;
-	const QString color = resolvePersonAndColor( calendarId, event, person );
+	const QVector<PersonMatch> matches = resolveAttendedPeople( event );
+	// Same accent a matched event's own person(s) would get is never used
+	// here — this is only reached for weekend/upcoming (a fallback, so any
+	// match already short-circuits it below) or an unmatched event.
+	const QString fallbackAccent = resolveFallbackAccent( calendarId, event );
 
 	if ( date == m_today )
 	{
 		if ( allDay )
 		{
 			// All-day/family-wide items aren't attributed to one person's
-			// column regardless of color match — same as the original mock.
+			// column regardless of match — same as the original mock.
 			QJsonObject o;
 			o["icon"] = QStringLiteral( "📌" );
 			o["label"] = summary;
 			o["time"] = QString();
 			m_todayHighlights.append( o );
 		}
-		else if ( !person.isEmpty() )
+		else
 		{
 			// No column exists for an unmatched person — a timed event
-			// today with no resolved person is left out of the day-grid
-			// entirely rather than guessing which column to put it in.
+			// today matching nobody is left out of the day-grid entirely
+			// rather than guessing which column to put it in. An event
+			// matching several people gets one row per match, so it shows
+			// in every one of their columns.
 			const double startHour = startDt.time().hour() + startDt.time().minute() / 60.0;
 			const double endHour = endDt.time().hour() + endDt.time().minute() / 60.0;
-			QJsonObject o;
-			o["person"] = person;
-			o["color"] = color;
-			o["event"] = summary;
-			o["start"] = startHour;
-			o["duration"] = qMax( 0.0, endHour - startHour );
-			o["eventId"] = eventId;
-			o["calendarId"] = calendarId;
-			o["etag"] = etag;
-			o["startIso"] = startIso;
-			o["endIso"] = endIso;
-			m_todaySchedule.append( o );
+			for ( const PersonMatch &m : matches )
+			{
+				QJsonObject o;
+				o["person"] = m.person;
+				o["color"] = m.color;
+				o["event"] = summary;
+				o["start"] = startHour;
+				o["duration"] = qMax( 0.0, endHour - startHour );
+				o["eventId"] = eventId;
+				o["calendarId"] = calendarId;
+				o["etag"] = etag;
+				o["startIso"] = startIso;
+				o["endIso"] = endIso;
+				m_todaySchedule.append( o );
+			}
 		}
 		return;
 	}
+
+	// weekend/upcoming only carry one accent field — an event matching
+	// several people shows the first match's color rather than picking a
+	// winner some other way.
+	const QString accent = matches.isEmpty() ? fallbackAccent : matches.first().color;
 
 	if ( date == m_weekendSaturday || date == m_weekendSunday )
 	{
@@ -142,7 +192,7 @@ void SnapshotBuilder::classify( const QString &calendarId, const QJsonObject &ev
 		o["date"] = date.toString( "MMM d" );
 		o["title"] = summary;
 		o["time"] = timeLabel;
-		o["accent"] = color;
+		o["accent"] = accent;
 		o["eventId"] = eventId;
 		o["calendarId"] = calendarId;
 		o["etag"] = etag;
@@ -159,7 +209,7 @@ void SnapshotBuilder::classify( const QString &calendarId, const QJsonObject &ev
 		o["day"] = date.toString( "dd" );
 		o["title"] = summary;
 		o["time"] = timeLabel;
-		o["accent"] = color;
+		o["accent"] = accent;
 		o["eventId"] = eventId;
 		o["calendarId"] = calendarId;
 		o["etag"] = etag;
