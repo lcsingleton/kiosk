@@ -1,0 +1,59 @@
+#pragma once
+
+#include <QLocalSocket>
+#include <QObject>
+#include <QSet>
+#include <QString>
+#include <QTimer>
+
+class QJsonObject;
+
+// Client side of the calendar-sync daemon's command socket protocol (see
+// CommandTypes.h for the wire format). Owns the connection: dials the
+// daemon's Unix domain socket, reconnects on drop, and turns each intent
+// call below into one NDJSON command line, returning the generated
+// commandId immediately. The eventual result arrives asynchronously as
+// commandSucceeded/commandFailed, keyed by that same commandId.
+//
+// This class only knows about the protocol and the socket, not what a
+// caller wants to tell a human about a given command — callers that want
+// user-facing text (e.g. "Adding \"Dentist checkup\"") should track their
+// own commandId -> description mapping alongside these calls.
+class CalendarSyncClient : public QObject
+{
+	Q_OBJECT
+
+  public:
+	explicit CalendarSyncClient( const QString &socketPath, QObject *parent = nullptr );
+
+	Q_INVOKABLE QString scheduleEvent( const QString &calendarId, const QString &summary,
+									   const QString &startIso, const QString &endIso,
+									   const QString &description = QString() );
+	Q_INVOKABLE QString rescheduleEvent( const QString &calendarId, const QString &eventId,
+										 const QString &etag, const QString &newStartIso,
+										 const QString &newEndIso );
+	Q_INVOKABLE QString cancelEvent( const QString &calendarId, const QString &eventId, const QString &etag );
+	Q_INVOKABLE QString renameEvent( const QString &calendarId, const QString &eventId, const QString &etag,
+									 const QString &newSummary );
+	Q_INVOKABLE QString changeEventLocation( const QString &calendarId, const QString &eventId,
+											 const QString &etag, const QString &newLocation );
+
+  signals:
+	void commandSucceeded( const QString &commandId );
+	void commandFailed( const QString &commandId, const QString &errorCode, const QString &errorMessage );
+
+  private slots:
+	void connectToServer();
+	void onReadyRead();
+
+  private:
+	QString sendCommand( const QString &action, const QString &calendarId, const QString &eventId,
+						 const QString &etag, const QJsonObject &payload );
+	void handleResultLine( const QByteArray &line );
+
+	QString m_socketPath;
+	QLocalSocket m_socket;
+	QByteArray m_recvBuffer;
+	QTimer m_reconnectTimer;
+	QSet<QString> m_pending;
+};

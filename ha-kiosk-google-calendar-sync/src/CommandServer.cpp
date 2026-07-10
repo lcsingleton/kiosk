@@ -19,12 +19,11 @@ CommandServer::CommandServer( CalendarClient *client, QObject *parent )
 	m_handlers[CommandAction::CancelEvent] = [this]( const Command &c, std::function<void( Result )> reply ) {
 		handleCancel( c, reply );
 	};
-	m_handlers[CommandAction::RenameEvent] = [this]( const Command &c, std::function<void( Result )> reply ) {
-		handlePatchField( c, "summary", "newSummary", reply );
-	};
+	m_handlers[CommandAction::RenameEvent] =
+		[this]( const Command &c, std::function<void( Result )> reply ) { handleRename( c, reply ); };
 	m_handlers[CommandAction::ChangeEventLocation] = [this]( const Command &c,
 															 std::function<void( Result )> reply ) {
-		handlePatchField( c, "location", "newLocation", reply );
+		handleChangeLocation( c, reply );
 	};
 }
 
@@ -124,10 +123,8 @@ void CommandServer::sendResult( QLocalSocket *socket, const Result &result )
 
 void CommandServer::handleSchedule( const Command &cmd, std::function<void( Result )> reply )
 {
-	const QString summary = cmd.payload.value( "summary" ).toString();
-	const QString start = cmd.payload.value( "start" ).toString();
-	const QString end = cmd.payload.value( "end" ).toString();
-	if ( summary.isEmpty() || start.isEmpty() || end.isEmpty() )
+	const auto payload = ScheduleEventPayload::fromJson( cmd.payload );
+	if ( payload.summary.isEmpty() || payload.start.isEmpty() || payload.end.isEmpty() )
 	{
 		reply( Result::failure( cmd.commandId, QStringLiteral( "invalid_request" ),
 								QStringLiteral( "ScheduleEvent requires payload.summary, .start, .end" ) ) );
@@ -135,12 +132,11 @@ void CommandServer::handleSchedule( const Command &cmd, std::function<void( Resu
 	}
 
 	QJsonObject eventBody;
-	eventBody["summary"] = summary;
-	eventBody["start"] = QJsonObject{ { "dateTime", start } };
-	eventBody["end"] = QJsonObject{ { "dateTime", end } };
-	const QString description = cmd.payload.value( "description" ).toString();
-	if ( !description.isEmpty() )
-		eventBody["description"] = description;
+	eventBody["summary"] = payload.summary;
+	eventBody["start"] = QJsonObject{ { "dateTime", payload.start } };
+	eventBody["end"] = QJsonObject{ { "dateTime", payload.end } };
+	if ( !payload.description.isEmpty() )
+		eventBody["description"] = payload.description;
 
 	m_client->insertEvent( cmd.calendarId, eventBody,
 						   [cmd, reply]( QJsonObject, QString code, QString message ) {
@@ -151,9 +147,8 @@ void CommandServer::handleSchedule( const Command &cmd, std::function<void( Resu
 
 void CommandServer::handleReschedule( const Command &cmd, std::function<void( Result )> reply )
 {
-	const QString newStart = cmd.payload.value( "newStart" ).toString();
-	const QString newEnd = cmd.payload.value( "newEnd" ).toString();
-	if ( newStart.isEmpty() || newEnd.isEmpty() )
+	const auto payload = RescheduleEventPayload::fromJson( cmd.payload );
+	if ( payload.newStart.isEmpty() || payload.newEnd.isEmpty() )
 	{
 		reply( Result::failure( cmd.commandId, QStringLiteral( "invalid_request" ),
 								QStringLiteral( "RescheduleEvent requires payload.newStart, .newEnd" ) ) );
@@ -161,8 +156,8 @@ void CommandServer::handleReschedule( const Command &cmd, std::function<void( Re
 	}
 
 	QJsonObject patchBody;
-	patchBody["start"] = QJsonObject{ { "dateTime", newStart } };
-	patchBody["end"] = QJsonObject{ { "dateTime", newEnd } };
+	patchBody["start"] = QJsonObject{ { "dateTime", payload.newStart } };
+	patchBody["end"] = QJsonObject{ { "dateTime", payload.newEnd } };
 
 	m_client->patchEvent( cmd.calendarId, cmd.eventId, cmd.etag, patchBody,
 						  [cmd, reply]( QJsonObject, QString code, QString message ) {
@@ -180,17 +175,33 @@ void CommandServer::handleCancel( const Command &cmd, std::function<void( Result
 						   } );
 }
 
-void CommandServer::handlePatchField( const Command &cmd, const QString &jsonKey, const QString &payloadKey,
-									  std::function<void( Result )> reply )
+void CommandServer::handleRename( const Command &cmd, std::function<void( Result )> reply )
 {
-	const QString value = cmd.payload.value( payloadKey ).toString();
-	if ( value.isEmpty() )
+	const auto payload = RenameEventPayload::fromJson( cmd.payload );
+	if ( payload.newSummary.isEmpty() )
 	{
 		reply( Result::failure( cmd.commandId, QStringLiteral( "invalid_request" ),
-								QStringLiteral( "%1 requires payload.%2" ).arg( cmd.action, payloadKey ) ) );
+								QStringLiteral( "RenameEvent requires payload.newSummary" ) ) );
 		return;
 	}
+	patchField( cmd, "summary", payload.newSummary, reply );
+}
 
+void CommandServer::handleChangeLocation( const Command &cmd, std::function<void( Result )> reply )
+{
+	const auto payload = ChangeEventLocationPayload::fromJson( cmd.payload );
+	if ( payload.newLocation.isEmpty() )
+	{
+		reply( Result::failure( cmd.commandId, QStringLiteral( "invalid_request" ),
+								QStringLiteral( "ChangeEventLocation requires payload.newLocation" ) ) );
+		return;
+	}
+	patchField( cmd, "location", payload.newLocation, reply );
+}
+
+void CommandServer::patchField( const Command &cmd, const QString &jsonKey, const QString &value,
+								std::function<void( Result )> reply )
+{
 	QJsonObject patchBody;
 	patchBody[jsonKey] = value;
 

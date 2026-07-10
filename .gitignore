@@ -28,4 +28,4 @@ Makefile
 .claude/settings.local.json
 
 # Local dev secrets — never commit a real service-account key or config
-daemon/local-test/
+ha-kiosk-google-calendar-sync/local-test/

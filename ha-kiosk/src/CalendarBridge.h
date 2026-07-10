@@ -3,24 +3,27 @@
 #include <QFileSystemWatcher>
 #include <QHash>
 #include <QJsonObject>
-#include <QLocalSocket>
 #include <QObject>
-#include <QTimer>
 #include <QVariantList>
 
+#include <calendar-sync-client/CalendarSyncClient.h>
+
 // Reads the calendar-sync daemon's JSON snapshot file (read side) and sends
-// intent-named commands over a local command socket (write side).
+// intent-named commands over its command socket (write side, via
+// CalendarSyncClient — see that class for the wire protocol itself).
 //
 // Read side: DashboardData.qml binds its calendar-related properties
 // directly onto this — see the "swap the source, keep the fields" comment
 // there — and they update whenever the snapshot file changes.
 //
 // Write side: touch gestures call the Q_INVOKABLE methods below, each of
-// which sends one NDJSON command line and returns a commandId immediately;
-// the eventual result arrives asynchronously as commandSucceeded/
-// commandFailed, keyed by that same commandId, so a caller can show
-// specific feedback ("Couldn't reschedule 'Dentist checkup': ...") rather
-// than a generic error.
+// which sends one command and returns a commandId immediately; the eventual
+// result arrives asynchronously as commandSucceeded/commandFailed, keyed by
+// that same commandId, so a caller can show specific feedback ("Couldn't
+// reschedule 'Dentist checkup': ...") rather than a generic error. This
+// class's own job on the write side is just remembering, per commandId,
+// the human-facing description of what was asked for — the protocol and
+// socket itself belong to CalendarSyncClient.
 class CalendarBridge : public QObject
 {
 	Q_OBJECT
@@ -63,26 +66,14 @@ class CalendarBridge : public QObject
 
   private slots:
 	void reloadSnapshot();
-	void connectToDaemon();
-	void onSocketReadyRead();
 
   private:
 	QVariantList arrayProperty( const char *key ) const;
-	QString sendCommand( const QString &action, const QString &calendarId, const QString &eventId,
-						 const QString &etag, const QJsonObject &payload, const QString &what );
-	void handleResultLine( const QByteArray &line );
 
 	QString m_snapshotPath;
 	QFileSystemWatcher m_watcher;
 	QJsonObject m_snapshot;
 
-	QString m_socketPath;
-	QLocalSocket m_socket;
-	QByteArray m_recvBuffer;
-	QTimer m_reconnectTimer;
-	struct PendingCommand
-	{
-		QString what;
-	};
-	QHash<QString, PendingCommand> m_pending;
+	CalendarSyncClient m_syncClient;
+	QHash<QString, QString> m_pendingWhat;
 };

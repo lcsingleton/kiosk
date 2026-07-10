@@ -1,0 +1,18 @@
+[Unit]
+Description=Calendar sync daemon for the kiosk app
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=kiosk
+Group=kiosk
+ExecStart=/opt/kiosk/bin/ha-kiosk-google-calendar-sync --config /etc/kiosk/daemon-config.json
+RuntimeDirectory=kiosk
+RuntimeDirectoryMode=0750
+Restart=always
+RestartSec=1
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

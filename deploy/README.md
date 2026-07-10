@@ -1,7 +1,14 @@
 # Deploying to the real tablet (Debian 12, RK3576)
 
-Nothing here is part of the Docker dev flow (`../docker/`) — these are the
-files that actually get installed on the tablet's Debian 12 rootfs. Unlike
+This is the walkthrough for installing the built app on the tablet's Debian
+12 rootfs — nothing here is part of the Docker dev flow (`../docker/`). The
+config files it references live next to their owning module — `../ha-kiosk/etc/`
+for the systemd unit and udev/module-load rules,
+`../ha-kiosk-google-calendar-sync/etc/` for the daemon's example config —
+and each mirrors its destination path on the
+tablet (`ha-kiosk/etc/udev/rules.d/` becomes `/etc/udev/rules.d/` there, same as a
+build system's DESTDIR staging tree), so each `cp` below just copies the
+matching relative path across. Unlike
 the dev container (which shares the host's amd64 GPU/kernel), the tablet has
 no competing compositor by design, so the eglfs app can just open the DRM
 device and become master with nothing to fight.
@@ -10,7 +17,17 @@ device and become master with nothing to fight.
    not suitable for producing tablet binaries — build on the tablet itself,
    or set up a proper arm64 cross-toolchain/build separately.
 
-2. Copy the binary to `/opt/kiosk/` on the tablet.
+2. Install it to `/opt/kiosk/` (the root `CMakeLists.txt` defaults
+   `CMAKE_INSTALL_PREFIX` there, so this needs no extra flags):
+
+   ```
+   cmake -B build -DCMAKE_BUILD_TYPE=Release
+   cmake --build build
+   sudo cmake --install build
+   ```
+
+   This lands the binary at `/opt/kiosk/bin/ha-kiosk`, matching
+   `ExecStart` in `kiosk.service` below.
 
 3. Install runtime packages (no build tooling needed on the deployed
    device — that's a dev-container-only concern):
@@ -44,7 +61,7 @@ device and become master with nothing to fight.
 5. Wire up I2C/GPIO. Always:
 
    ```
-   sudo cp i2c-dev.conf /etc/modules-load.d/
+   sudo cp ../ha-kiosk/etc/modules-load.d/i2c-dev.conf /etc/modules-load.d/
    ```
 
    For the MCP2221A (I2C bridge for the VL53L0X + status LEDs, or whichever
@@ -53,7 +70,7 @@ device and become master with nothing to fight.
    ```
    sudo groupadd -f i2c
    sudo usermod -aG i2c,plugdev,video,render kiosk
-   sudo cp 99-mcp2221.rules /etc/udev/rules.d/
+   sudo cp ../ha-kiosk/etc/udev/rules.d/99-mcp2221.rules /etc/udev/rules.d/
    ```
 
    For native mainboard GPIO (status LEDs, if step 4 found a gpiochip):
@@ -61,7 +78,7 @@ device and become master with nothing to fight.
    ```
    sudo groupadd -f gpio
    sudo usermod -aG gpio kiosk
-   sudo cp 99-native-gpio.rules /etc/udev/rules.d/
+   sudo cp ../ha-kiosk/etc/udev/rules.d/99-native-gpio.rules /etc/udev/rules.d/
    ```
 
    Then:
@@ -70,18 +87,33 @@ device and become master with nothing to fight.
    sudo udevadm control --reload-rules
    ```
 
-6. Install and enable the kiosk service:
+6. Install the calendar-sync daemon's config, then enable it. Its runtime
+   state (command socket, snapshot, single-instance lock) lives under
+   `/run/kiosk`, created automatically by the unit's `RuntimeDirectory=`
+   below — `kiosk.conf` is only needed if you ever run the binary outside
+   this unit (e.g. manual `--once` testing):
 
    ```
-   sudo cp kiosk.service /etc/systemd/system/
+   sudo mkdir -p /etc/kiosk
+   sudo cp ../ha-kiosk-google-calendar-sync/etc/daemon-config.example.json /etc/kiosk/daemon-config.json
+   # edit /etc/kiosk/daemon-config.json: serviceAccountKeyPath, calendars, people
+   sudo cp ../ha-kiosk-google-calendar-sync/etc/tmpfiles.d/kiosk.conf /etc/tmpfiles.d/
+   sudo cp ../ha-kiosk-google-calendar-sync/etc/systemd/system/ha-kiosk-google-calendar-sync.service /etc/systemd/system/
+   sudo systemctl enable --now ha-kiosk-google-calendar-sync.service
+   ```
+
+7. Install and enable the kiosk service:
+
+   ```
+   sudo cp ../ha-kiosk/etc/systemd/system/kiosk.service /etc/systemd/system/
    sudo systemctl enable --now kiosk.service
    ```
 
-7. Reboot, then check it came up on its own:
+8. Reboot, then check both came up on their own:
 
    ```
-   systemctl status kiosk
-   journalctl -u kiosk -f
+   systemctl status ha-kiosk-google-calendar-sync kiosk
+   journalctl -u ha-kiosk-google-calendar-sync -u kiosk -f
    ```
 
 `kiosk.service` targets `multi-user.target`, not `graphical.target` — there's

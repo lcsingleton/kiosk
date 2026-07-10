@@ -5,7 +5,7 @@
 #include <QObject>
 #include <functional>
 
-#include "CommandTypes.h"
+#include "calendar-sync-client/CommandTypes.h"
 
 class CalendarClient;
 class QLocalSocket;
@@ -40,8 +40,13 @@ class CommandServer : public QObject
 	void handleSchedule( const Command &cmd, std::function<void( Result )> reply );
 	void handleReschedule( const Command &cmd, std::function<void( Result )> reply );
 	void handleCancel( const Command &cmd, std::function<void( Result )> reply );
-	void handlePatchField( const Command &cmd, const QString &jsonKey, const QString &payloadKey,
-						   std::function<void( Result )> reply );
+	void handleRename( const Command &cmd, std::function<void( Result )> reply );
+	void handleChangeLocation( const Command &cmd, std::function<void( Result )> reply );
+
+	// Shared by handleRename/handleChangeLocation: both patch a single
+	// Google Calendar event field to a caller-supplied value.
+	void patchField( const Command &cmd, const QString &jsonKey, const QString &value,
+					 std::function<void( Result )> reply );
 
 	CalendarClient *m_client;
 	QLocalServer m_server;

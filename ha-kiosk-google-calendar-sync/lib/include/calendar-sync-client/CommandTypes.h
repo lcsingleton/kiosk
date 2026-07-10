@@ -18,7 +18,9 @@ constexpr auto ChangeEventLocation = "ChangeEventLocation";
 // One line of NDJSON from the kiosk app:
 // {"commandId":"...","action":"RescheduleEvent","calendarId":"...","eventId":"...","etag":"...","payload":{...}}
 // calendarId/eventId/etag are empty for ScheduleEvent (there's no existing
-// event yet); everything else populates them.
+// event yet); everything else populates them. payload's shape depends on
+// action — decode it with the matching *Payload struct below rather than
+// pulling fields out by key.
 struct Command
 {
 	QString commandId;
@@ -29,6 +31,44 @@ struct Command
 	QJsonObject payload;
 
 	static Command fromJson( const QJsonObject &obj );
+};
+
+// CancelEvent carries no payload: calendarId/eventId/etag on Command fully
+// identify it.
+struct ScheduleEventPayload
+{
+	QString summary;
+	QString start;
+	QString end;
+	QString description; // optional; empty means absent
+
+	static ScheduleEventPayload fromJson( const QJsonObject &obj );
+	QJsonObject toJson() const;
+};
+
+struct RescheduleEventPayload
+{
+	QString newStart;
+	QString newEnd;
+
+	static RescheduleEventPayload fromJson( const QJsonObject &obj );
+	QJsonObject toJson() const;
+};
+
+struct RenameEventPayload
+{
+	QString newSummary;
+
+	static RenameEventPayload fromJson( const QJsonObject &obj );
+	QJsonObject toJson() const;
+};
+
+struct ChangeEventLocationPayload
+{
+	QString newLocation;
+
+	static ChangeEventLocationPayload fromJson( const QJsonObject &obj );
+	QJsonObject toJson() const;
 };
 
 // One line of NDJSON back to the kiosk app, matched to its Command by

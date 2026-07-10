@@ -2,6 +2,9 @@
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDebug>
+#include <QDir>
+#include <QFileInfo>
+#include <QLockFile>
 #include <QRegularExpression>
 #include <QTimer>
 
@@ -112,7 +115,7 @@ void runSyncCycle( CalendarClient *client, const QVector<CalendarConfig> &calend
 int main( int argc, char *argv[] )
 {
 	QCoreApplication app( argc, argv );
-	QCoreApplication::setApplicationName( "kiosk-calendar-sync" );
+	QCoreApplication::setApplicationName( "ha-kiosk-google-calendar-sync" );
 
 	QCommandLineParser parser;
 	parser.addOption( { "config", "Path to daemon config JSON.", "path" } );
@@ -123,7 +126,7 @@ int main( int argc, char *argv[] )
 	const QString configPath = parser.value( "config" );
 	if ( configPath.isEmpty() )
 	{
-		qCritical() << "usage: kiosk-calendar-sync --config <path> [--once]";
+		qCritical() << "usage: ha-kiosk-google-calendar-sync --config <path> [--once]";
 		return 1;
 	}
 
@@ -132,6 +135,20 @@ int main( int argc, char *argv[] )
 	if ( !Config::load( configPath, config, error ) )
 	{
 		qCritical() << "config error:" << error;
+		return 1;
+	}
+
+	// Guards against two instances racing over the same socket/snapshot —
+	// lives next to snapshotPath (normally /run/kiosk, an FHS runtime
+	// directory) rather than a hardcoded path, so a config pointed
+	// elsewhere (e.g. for testing) still gets its own lock.
+	const QString runtimeDir = QFileInfo( config.snapshotPath ).absolutePath();
+	QDir().mkpath( runtimeDir );
+	QLockFile lockFile( runtimeDir + "/ha-kiosk-google-calendar-sync.lock" );
+	if ( !lockFile.tryLock() )
+	{
+		qCritical().noquote() << "another instance is already running (lock held at" << lockFile.fileName()
+							  << ")";
 		return 1;
 	}
 

@@ -23,7 +23,16 @@ int main( int argc, char *argv[] )
 	QQmlApplicationEngine engine;
 	engine.rootContext()->setContextProperty( "calendarBridge", &calendarBridge );
 
-	const QString qmlPath = QDir( QCoreApplication::applicationDirPath() ).filePath( "main.qml" );
+	// qml/ and assets/ both install under share/ha-kiosk/ (FHS:
+	// architecture-independent data doesn't belong next to the binary),
+	// always one fixed hop from wherever the binary itself landed — see
+	// ha-kiosk/CMakeLists.txt.
+	const QString shareDir =
+		QDir::cleanPath( QCoreApplication::applicationDirPath() + "/../share/ha-kiosk" );
+	const QString assetsPath = shareDir + "/assets";
+	engine.rootContext()->setContextProperty( "assetsUrl", QUrl::fromLocalFile( assetsPath + "/" ) );
+
+	const QString qmlPath = QDir( shareDir + "/qml" ).filePath( "main.qml" );
 	engine.load( QUrl::fromLocalFile( qmlPath ) );
 
 	if ( engine.rootObjects().isEmpty() )

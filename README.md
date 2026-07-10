@@ -3,20 +3,31 @@
 Qt6 eglfs kiosk app, prototyped in Docker before flashing the real RK3576
 tablet.
 
-- [`app/`](app/) — the Qt Quick source, built identically in both places
-  below.
-- [`daemon/`](daemon/) — the calendar-sync daemon: Google Calendar auth,
-  polling, and the local command socket the app talks to. Separate CMake
-  target, same root build.
+- [`ha-kiosk/`](ha-kiosk/) — the Qt Quick app, built identically in both
+  places below. [`ha-kiosk/src/`](ha-kiosk/src/) is the C++; the binary is
+  the only architecture-dependent thing here, so it's the only thing that
+  installs to `bin/`. [`ha-kiosk/qml/`](ha-kiosk/qml/) (UI source) and
+  [`ha-kiosk/assets/`](ha-kiosk/assets/) (fonts/icons/images) are both
+  architecture-independent data, so per the FHS they install under
+  `share/ha-kiosk/qml/` and `share/ha-kiosk/assets/` instead — `main.cpp`
+  resolves both at runtime via a fixed `bin/../share` offset from
+  `applicationDirPath()`. [`ha-kiosk/etc/`](ha-kiosk/etc/) holds the config
+  it owns on the tablet: the systemd unit and the udev/module-load rules for
+  the I2C/GPIO hardware path.
+- [`ha-kiosk-google-calendar-sync/`](ha-kiosk-google-calendar-sync/) — the
+  calendar-sync daemon: Google Calendar auth, polling, and the local command
+  socket the app talks to. Separate CMake target, same root build.
+  [`ha-kiosk-google-calendar-sync/etc/`](ha-kiosk-google-calendar-sync/etc/)
+  holds its example config.
 - [`docker/`](docker/) + [`run.sh`](run.sh) — Debian 12 dev container (eglfs,
   SSH, I2C/USB tooling). Not a hardware-accurate clone of the tablet's Mali
   GPU — it uses whatever DRM/KMS device your dev box has (here: `amdgpu` via
   `/dev/dri/card1`). Good enough to validate app logic, layout, and the
   I2C/USB sensor+LED path; GPU-driver-specific eglfs quirks will need a final
   check on the actual tablet. **Never deployed anywhere** — dev-only.
-- [`deploy/`](deploy/) — the systemd unit, udev rule, and package list that
-  actually get installed on the tablet's Debian 12. **Nothing here runs in
-  Docker.**
+- [`deploy/README.md`](deploy/README.md) — the walkthrough for installing
+  the built app on the tablet's Debian 12: packages, hardware wiring, and
+  where each module's `etc/` files land. **Nothing here runs in Docker.**
 
 ## Build + run (dev container)
 
@@ -71,7 +82,7 @@ Note: the MCP2221A's GPIO pins are 3.3V logic only, low current — fine to
 toggle an LED through a driver transistor/MOSFET, not enough to drive one
 directly at any real brightness.
 
-## Hello-world app (`app/`)
+## Hello-world app (`ha-kiosk/`)
 
 Minimal Qt Quick window ("Hello, kiosk!") to sanity-check the toolchain
 before writing real kiosk logic.
@@ -87,31 +98,33 @@ iterate on layout/visuals without any eglfs/SSH/X11-forwarding involved:
 sudo apt install qt6-base-dev qt6-declarative-dev cmake build-essential \
   qml6-module-qtquick-controls qml6-module-qtquick-layouts \
   qml6-module-qtquick-virtualkeyboard qt6-virtualkeyboard-plugin   # if not already present
-cd app && cmake -B build && cmake --build build
-./build/hello-kiosk
+cd ha-kiosk && cmake -B build && cmake --build build
+./build/bin/ha-kiosk
 ```
 
-(that builds just `app/` standalone — see [`daemon/README`](daemon/) or the
-root build below to also build the calendar-sync daemon, which additionally
-needs `libssl-dev` and links `Qt6::Network`.)
+(that builds just `ha-kiosk/` standalone — see
+[`ha-kiosk-google-calendar-sync/README`](ha-kiosk-google-calendar-sync/) or
+the root build below to also build the calendar-sync daemon, which
+additionally needs `libssl-dev` and links `Qt6::Network`.)
 
 Build/run the same source inside the container over SSH, forcing eglfs.
 `run.sh` bind-mounts the **whole repo** to `/home/kiosk/kiosk` (not just
-`app/` — the calendar-sync daemon in `daemon/` needs to be reachable too),
-so it's already there — edit on the host, build/run over SSH. The root
-[`CMakeLists.txt`](CMakeLists.txt) builds both `app/` and `daemon/` as
-sibling targets from one `cmake -B build`:
+`ha-kiosk/` — the calendar-sync daemon in `ha-kiosk-google-calendar-sync/`
+needs to be reachable too), so it's already there — edit on the host,
+build/run over SSH. The root [`CMakeLists.txt`](CMakeLists.txt) builds both
+`ha-kiosk/` and `ha-kiosk-google-calendar-sync/` as sibling targets from one
+`cmake -B build`:
 
 ```
 ssh -p 2222 kiosk@localhost
 cd /home/kiosk/kiosk
 cmake -B build && cmake --build build
-QT_QPA_PLATFORM=eglfs QT_QPA_EGLFS_ALWAYS_SET_MODE=1 ./build/app/hello-kiosk
+QT_QPA_PLATFORM=eglfs QT_QPA_EGLFS_ALWAYS_SET_MODE=1 ./build/bin/ha-kiosk
 ```
 
-The daemon binary lands at `./build/daemon/kiosk-calendar-sync` — run it
-with `--config <path>` pointing at a daemon config (see
-[`daemon/daemon-config.example.json`](daemon/daemon-config.example.json)).
+The daemon binary lands at `./build/bin/ha-kiosk-google-calendar-sync` — run
+it with `--config <path>` pointing at a daemon config (see
+[`ha-kiosk-google-calendar-sync/etc/daemon-config.example.json`](ha-kiosk-google-calendar-sync/etc/daemon-config.example.json)).
 
 If SSH throws you into a GUI `ksshaskpass` dialog that can't parse the
 host-key/password prompts (seen on KDE desktops — it hijacks any `ssh`
@@ -166,7 +179,7 @@ export QT_QPA_EGLFS_INTEGRATION=eglfs_x11
 export QT_QPA_EGLFS_WIDTH=1080
 export QT_QPA_EGLFS_HEIGHT=1920
 export QT_IM_MODULE=qtvirtualkeyboard
-./build/app/hello-kiosk
+./build/bin/ha-kiosk
 ```
 
 `QT_QPA_EGLFS_WIDTH`/`HEIGHT` force the logical screen size eglfs reports to
@@ -207,7 +220,7 @@ Ctrl+Alt+F3                              # switch to a free text console —
                                           # drop DRM master
 ssh -p 2222 kiosk@localhost              # from another machine, or a
                                           # session opened before switching
-QT_QPA_PLATFORM=eglfs QT_QPA_EGLFS_ALWAYS_SET_MODE=1 ./build/app/hello-kiosk
+QT_QPA_PLATFORM=eglfs QT_QPA_EGLFS_ALWAYS_SET_MODE=1 ./build/bin/ha-kiosk
 ```
 
 Ctrl+C the app, then Ctrl+Alt+F1 (or F2) to get back to your desktop. If the
@@ -236,7 +249,7 @@ sees (and lays out for) a 1080x1920 screen. It's the same generic eglfs
 option under `eglfs_x11`, so worth toggling now during the windowed dev loop
 above — cheaper to get 90 vs. 270 right on your desktop than by rebooting
 the tablet. Once confirmed, add all three `Environment=` lines to
-[`deploy/kiosk.service`](deploy/kiosk.service).
+[`ha-kiosk/etc/systemd/system/kiosk.service`](ha-kiosk/etc/systemd/system/kiosk.service).
 
 ## On-screen keyboard
 
@@ -250,7 +263,7 @@ Packages (already added to [`docker/Dockerfile`](docker/Dockerfile) and
 [`deploy/README.md`](deploy/README.md)):
 `qml6-module-qtquick-virtualkeyboard`, `qt6-virtualkeyboard-plugin`.
 
-Wiring, already in [`app/main.qml`](app/main.qml):
+Wiring, already in [`ha-kiosk/qml/main.qml`](ha-kiosk/qml/main.qml):
 ```qml
 import QtQuick.VirtualKeyboard
 
@@ -262,7 +275,7 @@ InputPanel {
 }
 ```
 plus `QT_IM_MODULE=qtvirtualkeyboard` in the environment (in
-`deploy/kiosk.service` for the tablet; export it manually for the dev-loop
+`ha-kiosk/etc/systemd/system/kiosk.service` for the tablet; export it manually for the dev-loop
 commands above). Tapping any `TextField`/`TextInput` then auto-shows it.
 
 If you want a custom layout instead (e.g. numeric-only, since this kiosk is
