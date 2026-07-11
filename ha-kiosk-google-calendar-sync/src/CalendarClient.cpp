@@ -1,4 +1,5 @@
 #include "CalendarClient.h"
+#include "DelegatedAuth.h"
 #include "GoogleAuth.h"
 
 #include <QJsonDocument>
@@ -34,8 +35,18 @@ QPair<QString, QString> classifyFailure( QNetworkReply *reply, const QByteArray 
 			code = QStringLiteral( "invalid_request" );
 			break;
 		case 401:
-		case 403:
 			code = QStringLiteral( "auth_failure" );
+			break;
+		case 403:
+			// Distinguished from a generic auth_failure because it's
+			// recoverable: CalendarClient::patchEvent retries it with
+			// DelegatedAuth instead of just reporting failure. Matched on
+			// Google's stable machine-readable reason code, not the
+			// human-readable message (whose exact capitalization/wording —
+			// "Domain-Wide Delegation of Authority" — isn't a contract the
+			// way the reason code is).
+			code = body.contains( "forbiddenForServiceAccounts" ) ? QStringLiteral( "delegation_required" )
+																  : QStringLiteral( "auth_failure" );
 			break;
 		case 404:
 		case 410:
@@ -56,7 +67,8 @@ QPair<QString, QString> classifyFailure( QNetworkReply *reply, const QByteArray 
 
 } // namespace
 
-CalendarClient::CalendarClient( GoogleAuth *auth, QObject *parent ) : QObject( parent ), m_auth( auth )
+CalendarClient::CalendarClient( GoogleAuth *auth, DelegatedAuth *delegatedAuth, QObject *parent )
+	: QObject( parent ), m_auth( auth ), m_delegatedAuth( delegatedAuth )
 {
 }
 
@@ -181,42 +193,71 @@ void CalendarClient::patchEvent( const QString &calendarId, const QString &event
 								 const QJsonObject &patchBody,
 								 std::function<void( QJsonObject, QString, QString )> callback )
 {
-	m_auth->accessToken(
-		[this, calendarId, eventId, etag, patchBody, callback]( QString token, QString authError ) {
-			if ( token.isEmpty() )
-			{
-				callback( {}, QStringLiteral( "auth_failure" ), authError );
-				return;
-			}
+	m_auth->accessToken( [this, calendarId, eventId, etag, patchBody, callback]( QString token,
+																				 QString authError ) {
+		if ( token.isEmpty() )
+		{
+			callback( {}, QStringLiteral( "auth_failure" ), authError );
+			return;
+		}
 
-			// Explicit rather than relying on the API's own default: a PATCH
-			// that touches attendees[] (invite/uninvite) must never trigger
-			// Google's guest-notification emails.
-			QUrl url = eventUrl( calendarId, eventId );
-			QUrlQuery query;
-			query.addQueryItem( "sendUpdates", "none" );
-			url.setQuery( query );
+		sendPatch( calendarId, eventId, etag, patchBody, token,
+				   [this, calendarId, eventId, etag, patchBody, callback]( QJsonObject event, QString code,
+																		   QString message ) {
+					   if ( code != QLatin1String( "delegation_required" ) || !m_delegatedAuth )
+					   {
+						   callback( event, code, message );
+						   return;
+					   }
 
-			QNetworkRequest request( url );
-			request.setRawHeader( "Authorization", "Bearer " + token.toUtf8() );
-			request.setHeader( QNetworkRequest::ContentTypeHeader, "application/json" );
-			if ( !etag.isEmpty() )
-				request.setRawHeader( "If-Match", etag.toUtf8() );
+					   // Resume the same patch, as a delegated real user
+					   // instead of the service account, once (and
+					   // whenever, however long that takes — see
+					   // DelegatedAuth) a token becomes available.
+					   m_delegatedAuth->accessToken( [this, calendarId, eventId, etag, patchBody, callback](
+														 QString delegatedToken, QString delegatedError ) {
+						   if ( delegatedToken.isEmpty() )
+						   {
+							   callback( {}, QStringLiteral( "delegation_required" ), delegatedError );
+							   return;
+						   }
+						   sendPatch( calendarId, eventId, etag, patchBody, delegatedToken, callback );
+					   } );
+				   } );
+	} );
+}
 
-			QNetworkReply *reply = m_nam.sendCustomRequest(
-				request, "PATCH", QJsonDocument( patchBody ).toJson( QJsonDocument::Compact ) );
-			connect( reply, &QNetworkReply::finished, this, [reply, callback]() {
-				reply->deleteLater();
-				const QByteArray body = reply->readAll();
-				if ( reply->error() != QNetworkReply::NoError )
-				{
-					const auto [code, message] = classifyFailure( reply, body );
-					callback( {}, code, message );
-					return;
-				}
-				callback( QJsonDocument::fromJson( body ).object(), QString(), QString() );
-			} );
-		} );
+void CalendarClient::sendPatch( const QString &calendarId, const QString &eventId, const QString &etag,
+								const QJsonObject &patchBody, const QString &token,
+								std::function<void( QJsonObject, QString, QString )> callback )
+{
+	// Explicit rather than relying on the API's own default: a PATCH that
+	// touches attendees[] (invite/uninvite) must never trigger Google's
+	// guest-notification emails.
+	QUrl url = eventUrl( calendarId, eventId );
+	QUrlQuery query;
+	query.addQueryItem( "sendUpdates", "none" );
+	url.setQuery( query );
+
+	QNetworkRequest request( url );
+	request.setRawHeader( "Authorization", "Bearer " + token.toUtf8() );
+	request.setHeader( QNetworkRequest::ContentTypeHeader, "application/json" );
+	if ( !etag.isEmpty() )
+		request.setRawHeader( "If-Match", etag.toUtf8() );
+
+	QNetworkReply *reply = m_nam.sendCustomRequest(
+		request, "PATCH", QJsonDocument( patchBody ).toJson( QJsonDocument::Compact ) );
+	connect( reply, &QNetworkReply::finished, this, [reply, callback]() {
+		reply->deleteLater();
+		const QByteArray body = reply->readAll();
+		if ( reply->error() != QNetworkReply::NoError )
+		{
+			const auto [code, message] = classifyFailure( reply, body );
+			callback( {}, code, message );
+			return;
+		}
+		callback( QJsonDocument::fromJson( body ).object(), QString(), QString() );
+	} );
 }
 
 void CalendarClient::insertEvent( const QString &calendarId, const QJsonObject &eventBody,

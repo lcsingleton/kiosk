@@ -153,7 +153,7 @@ Popup {
             AttendeeBadges {
                 attendees: (popup.event && popup.event.attendees) || []
                 dashboardData: popup.dashboardData
-                eventId: popup.event ? popup.event.eventId : ""
+                eventId: (popup.event && popup.event.eventId) || ""
                 onToggled: (person, invited) => {
                     if (invited)
                         calendarBridge.inviteParticipant(popup.event.calendarId, popup.event.eventId, popup.event.etag, person)

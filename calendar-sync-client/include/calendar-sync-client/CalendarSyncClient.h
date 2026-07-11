@@ -46,6 +46,15 @@ class CalendarSyncClient : public QObject
 	void commandSucceeded( const QString &commandId );
 	void commandFailed( const QString &commandId, const QString &errorCode, const QString &errorMessage );
 
+	// The daemon fell back to the delegated-user OAuth device flow (see
+	// DelegatedAuth) and needs a human to visit verificationUrl and enter
+	// userCode within expiresInSecs before the invite/uninvite that
+	// triggered it can complete. Not tied to a specific commandId — the
+	// pending command that triggered this still resolves via
+	// commandSucceeded/commandFailed on its own, whenever that grant
+	// finishes or expires.
+	void authorizationRequired( const QString &verificationUrl, const QString &userCode, int expiresInSecs );
+
   private slots:
 	void connectToServer();
 	void onReadyRead();

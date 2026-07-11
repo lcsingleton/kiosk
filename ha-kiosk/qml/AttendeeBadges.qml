@@ -54,9 +54,14 @@ Row {
                 onClicked: {
                     const person = modelData.name
                     const newInvited = !modelData.invited
+                    // toggled() first: setAttendeeOverride() below mutates
+                    // dashboardData.attendeeOverrides, which displayAttendees()
+                    // (this delegate's Repeater model, line 36) reads — so it
+                    // synchronously tears down and recreates this very
+                    // delegate. Nothing after that call may reference `badges`.
+                    badges.toggled(person, newInvited)
                     if (badges.dashboardData)
                         badges.dashboardData.setAttendeeOverride(badges.eventId, person, newInvited)
-                    badges.toggled(person, newInvited)
                 }
             }
         }

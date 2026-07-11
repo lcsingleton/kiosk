@@ -14,6 +14,7 @@
 #include "CalendarClient.h"
 #include "CommandServer.h"
 #include "Config.h"
+#include "DelegatedAuth.h"
 #include "GoogleAuth.h"
 #include "GoogleColorNames.h"
 #include "SnapshotBuilder.h"
@@ -95,8 +96,19 @@ void runSyncCycle( CalendarClient *client, const QVector<CalendarConfig> &calend
 				if ( --( *pending ) > 0 )
 					return;
 
+				// Which calendar a newly-created event (tapping an empty
+				// timeline slot) lands on — Config::load guarantees at
+				// least one calendar is configured, so this is never
+				// empty. Households with more than one configured calendar
+				// all get funneled onto the first regardless of which
+				// person's column was tapped; there's no per-person
+				// calendar ownership concept in this data model (see
+				// SnapshotBuilder's class comment).
+				QJsonObject snapshot = builder->build();
+				snapshot["defaultCalendarId"] = cal.calendarId;
+
 				QString writeError;
-				if ( SnapshotWriter::write( snapshotPath, builder->build(), writeError ) )
+				if ( SnapshotWriter::write( snapshotPath, snapshot, writeError ) )
 				{
 					qInfo().noquote() << "snapshot written to" << snapshotPath;
 				}
@@ -159,7 +171,26 @@ int main( int argc, char *argv[] )
 		return 1;
 	}
 
-	auto client = new CalendarClient( auth, &app );
+	// Only constructed when configured (Config::load already verified all
+	// three fields are set together or not at all) — CalendarClient treats
+	// a null delegatedAuth as "no fallback, just report delegation_required
+	// as a failure", same behavior as before this existed.
+	DelegatedAuth *delegatedAuth = nullptr;
+	if ( !config.oauthClientId.isEmpty() )
+	{
+		delegatedAuth =
+			new DelegatedAuth( config.oauthClientId, config.oauthClientSecret, config.userTokenPath, &app );
+		QObject::connect( delegatedAuth, &DelegatedAuth::authorizationPending, &app,
+						  []( QString verificationUrl, QString userCode, int expiresInSecs ) {
+							  qWarning().noquote() << QStringLiteral(
+								  "Google Calendar needs one-time authorization to invite attendees: visit "
+								  "%1 and enter code %2 (expires in %3 min)" )
+														.arg( verificationUrl, userCode )
+														.arg( expiresInSecs / 60 );
+						  } );
+	}
+
+	auto client = new CalendarClient( auth, delegatedAuth, &app );
 	const bool once = parser.isSet( "once" );
 	const QVector<CalendarConfig> calendars = config.calendars;
 	const QVector<PersonConfig> configuredPeople = config.people;
@@ -167,7 +198,7 @@ int main( int argc, char *argv[] )
 	const int pollIntervalMs = qMax( 1, config.pollIntervalSeconds ) * 1000;
 
 	auto pollTimer = std::make_shared<QTimer>();
-	auto commandServer = std::make_shared<CommandServer>( client, config.people );
+	auto commandServer = std::make_shared<CommandServer>( client, config.people, delegatedAuth );
 
 	// Color resolution needs one network round trip (the live /colors
 	// palettes) before anything else can run, so the rest of startup —
@@ -271,12 +302,13 @@ int main( int argc, char *argv[] )
 	const int result = app.exec();
 
 	// Explicit, ordered teardown before QCoreApplication's own destructor
-	// runs: GoogleAuth/CalendarClient own QNetworkAccessManager as a direct
-	// member, and letting Qt's parent-child cleanup destroy them in
-	// whatever order it likes (after real socket/SSL activity) produces a
+	// runs: GoogleAuth/DelegatedAuth/CalendarClient own QNetworkAccessManager
+	// as a direct member, and letting Qt's parent-child cleanup destroy them
+	// in whatever order it likes (after real socket/SSL activity) produces a
 	// harmless but noisy "invalid nullptr parameter" connect warning.
 	commandServer.reset();
 	delete client;
+	delete delegatedAuth;
 	delete auth;
 
 	return result;

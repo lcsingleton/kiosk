@@ -3,6 +3,10 @@
   "pollIntervalSeconds": 120,
   "socketPath": "/run/kiosk/calendar-sync.sock",
   "snapshotPath": "/run/kiosk/calendar-snapshot.json",
+  "_comment_oauth": "oauthClientId/oauthClientSecret/userTokenPath are optional and must be set together (or all left empty, as below, to disable). They enable inviting attendees on a personal (non-Workspace) calendar, where the service account above can never do it without domain-wide delegation — see DelegatedAuth. Client id/secret come from a Google Cloud 'TV and Limited Input' OAuth client, not the service account. Example if enabled: oauthClientId/oauthClientSecret from that client, userTokenPath e.g. /etc/kiosk/google-user-token.json.",
+  "oauthClientId": "",
+  "oauthClientSecret": "",
+  "userTokenPath": "",
   "calendars": [
     { "calendarId": "family@example.com", "color": "#9085e9" }
   ],

@@ -17,6 +17,13 @@ constexpr auto InviteParticipant = "InviteParticipant";
 constexpr auto UninviteParticipant = "UninviteParticipant";
 } // namespace CommandAction
 
+// The "event" value on an unsolicited notification line — see
+// AuthorizationPendingEvent below.
+namespace CommandEvent
+{
+constexpr auto AuthorizationPending = "AuthorizationPending";
+} // namespace CommandEvent
+
 // One line of NDJSON from the kiosk app:
 // {"commandId":"...","action":"RescheduleEvent","calendarId":"...","eventId":"...","etag":"...","payload":{...}}
 // calendarId/eventId/etag are empty for ScheduleEvent (there's no existing
@@ -101,5 +108,23 @@ struct Result
 	}
 	static Result success( const QString &commandId );
 	static Result failure( const QString &commandId, const QString &code, const QString &message );
+	QJsonObject toJson() const;
+};
+
+// An unsolicited NDJSON line the daemon can push to every connected kiosk
+// app, not tied to any commandId — distinguished on the wire by having
+// "event" instead of "commandId". Only one kind exists today: the daemon
+// fell back to the delegated-user OAuth device flow (see DelegatedAuth) to
+// satisfy an invite/uninvite the service account alone can't do, and a
+// human needs to complete that grant out of band before the pending
+// command can finish. The kiosk app has no keyboard-friendly way to
+// complete a Google sign-in itself, so it just has to display
+// verificationUrl + userCode long enough for someone to do it on a phone.
+struct AuthorizationPendingEvent
+{
+	QString verificationUrl;
+	QString userCode;
+	int expiresInSecs = 0;
+
 	QJsonObject toJson() const;
 };

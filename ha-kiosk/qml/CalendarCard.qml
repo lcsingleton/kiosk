@@ -5,6 +5,7 @@ import QtQuick.Layouts
 // whole picture is one glance. Doesn't own popup state — it just reports
 // taps back up to whoever owns the EventEditPopup.
 DashboardCard {
+    id: card
     property var dashboardData
 
     signal editRequested(var item, string titleKey)
@@ -41,7 +42,7 @@ DashboardCard {
                         Text { text: modelData.time; color: "#8296b8"; font.pixelSize: 12; visible: !!modelData.time }
                         AttendeeBadges {
                             attendees: modelData.attendees || []
-                            dashboardData: dashboardData
+                            dashboardData: card.dashboardData
                             eventId: modelData.eventId
                             onToggled: (person, invited) => {
                                 if (invited)
@@ -62,7 +63,7 @@ DashboardCard {
                 // a person's column shows/hides immediately instead of
                 // waiting for the daemon's round trip and next snapshot.
                 items: dashboardData.effectiveTodaySchedule()
-                dashboardData: dashboardData
+                dashboardData: card.dashboardData
                 startHour: 6
                 endHour: 22
                 rowHeight: 30
@@ -142,7 +143,7 @@ DashboardCard {
                                     AttendeeBadges {
                                         size: 16
                                         attendees: modelData.attendees || []
-                                        dashboardData: dashboardData
+                                        dashboardData: card.dashboardData
                                         eventId: modelData.eventId
                                         onToggled: (person, invited) => {
                                             if (invited)
@@ -199,7 +200,7 @@ DashboardCard {
                             AttendeeBadges {
                                 size: 16
                                 attendees: modelData.attendees || []
-                                dashboardData: dashboardData
+                                dashboardData: card.dashboardData
                                 eventId: modelData.eventId
                                 onToggled: (person, invited) => {
                                     if (invited)

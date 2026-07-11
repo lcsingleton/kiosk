@@ -10,6 +10,7 @@
 #include "calendar-sync-client/CommandTypes.h"
 
 class CalendarClient;
+class DelegatedAuth;
 class QLocalSocket;
 class QTimer;
 
@@ -30,7 +31,6 @@ struct PendingAttendeeBatch
 {
 	QString calendarId;
 	QString eventId;
-	QString etag;
 	QHash<QString, bool> deltas; // person name -> desired invited state, last tap wins
 	QVector<PendingAttendeeReply> pending;
 };
@@ -47,8 +47,12 @@ class CommandServer : public QObject
 	// UninviteParticipant's payload.person (a name) to the email address(es)
 	// that identifies them as a Calendar API attendee — only this class and
 	// SnapshotBuilder ever see those emails; they never reach the UI.
+	//
+	// `delegatedAuth` (optional, same as CalendarClient's) is only used to
+	// relay its authorizationPending signal to every connected kiosk app —
+	// see broadcastAuthorizationPending.
 	explicit CommandServer( CalendarClient *client, const QVector<PersonConfig> &people,
-							QObject *parent = nullptr );
+							DelegatedAuth *delegatedAuth = nullptr, QObject *parent = nullptr );
 
 	// Removes any stale socket file from a previous run, then listens.
 	bool listen( const QString &socketPath, QString &error );
@@ -66,6 +70,15 @@ class CommandServer : public QObject
 	void handleLine( QLocalSocket *socket, const QByteArray &line );
 	void dispatch( const Command &cmd, std::function<void( Result )> reply );
 	void sendResult( QLocalSocket *socket, const Result &result );
+
+	// Relays DelegatedAuth::authorizationPending to every currently
+	// connected kiosk app as an unsolicited notification line (see
+	// AuthorizationPendingEvent) rather than to whichever socket happens to
+	// own the invite/uninvite command that triggered it — the household
+	// needs to see this on the kiosk regardless of which device sent that
+	// command.
+	void broadcastAuthorizationPending( const QString &verificationUrl, const QString &userCode,
+										int expiresInSecs );
 
 	void handleSchedule( const Command &cmd, std::function<void( Result )> reply );
 	void handleReschedule( const Command &cmd, std::function<void( Result )> reply );

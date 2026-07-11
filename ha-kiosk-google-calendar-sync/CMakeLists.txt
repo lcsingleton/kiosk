@@ -17,6 +17,7 @@ add_executable(ha-kiosk-google-calendar-sync
     src/main.cpp
     src/Config.cpp
     src/GoogleAuth.cpp
+    src/DelegatedAuth.cpp
     src/CalendarClient.cpp
     src/SnapshotBuilder.cpp
     src/SnapshotWriter.cpp

@@ -113,3 +113,11 @@ QJsonObject ParticipantPayload::toJson() const
 {
 	return QJsonObject{ { "person", person } };
 }
+
+QJsonObject AuthorizationPendingEvent::toJson() const
+{
+	return QJsonObject{ { "event", CommandEvent::AuthorizationPending },
+						 { "verificationUrl", verificationUrl },
+						 { "userCode", userCode },
+						 { "expiresInSecs", expiresInSecs } };
+}

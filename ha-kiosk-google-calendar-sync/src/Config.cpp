@@ -28,6 +28,9 @@ bool Config::load( const QString &path, Config &out, QString &error )
 	out.pollIntervalSeconds = root.value( "pollIntervalSeconds" ).toInt( 120 );
 	out.socketPath = root.value( "socketPath" ).toString();
 	out.snapshotPath = root.value( "snapshotPath" ).toString();
+	out.oauthClientId = root.value( "oauthClientId" ).toString();
+	out.oauthClientSecret = root.value( "oauthClientSecret" ).toString();
+	out.userTokenPath = root.value( "userTokenPath" ).toString();
 
 	out.calendars.clear();
 	for ( const QJsonValue &v : root.value( "calendars" ).toArray() )
@@ -86,6 +89,18 @@ bool Config::load( const QString &path, Config &out, QString &error )
 	if ( out.calendars.isEmpty() )
 	{
 		error = QStringLiteral( "config %1: \"calendars\" is empty — nothing to sync" ).arg( path );
+		return false;
+	}
+
+	const int delegatedFieldsSet = int( !out.oauthClientId.isEmpty() ) +
+									int( !out.oauthClientSecret.isEmpty() ) +
+									int( !out.userTokenPath.isEmpty() );
+	if ( delegatedFieldsSet != 0 && delegatedFieldsSet != 3 )
+	{
+		error = QStringLiteral( "config %1: \"oauthClientId\", \"oauthClientSecret\", and \"userTokenPath\" "
+								"must be set together (or all left empty to disable the attendee-invite "
+								"fallback)" )
+					.arg( path );
 		return false;
 	}
 

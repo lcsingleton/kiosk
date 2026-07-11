@@ -128,6 +128,15 @@ void CalendarSyncClient::onReadyRead()
 void CalendarSyncClient::handleResultLine( const QByteArray &line )
 {
 	const QJsonObject obj = QJsonDocument::fromJson( line ).object();
+
+	if ( obj.value( "event" ).toString() == QLatin1String( CommandEvent::AuthorizationPending ) )
+	{
+		emit authorizationRequired( obj.value( "verificationUrl" ).toString(),
+									obj.value( "userCode" ).toString(),
+									obj.value( "expiresInSecs" ).toInt() );
+		return;
+	}
+
 	const QString commandId = obj.value( "commandId" ).toString();
 
 	const auto it = m_pending.find( commandId );

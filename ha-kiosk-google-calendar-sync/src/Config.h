@@ -40,6 +40,17 @@ struct Config
 	QVector<CalendarConfig> calendars;
 	QVector<PersonConfig> people;
 
+	// Optional OAuth "TV and limited input device" client, used only as
+	// CalendarClient's fallback for inviting attendees when the service
+	// account hits Google's domain-wide-delegation wall (see
+	// DelegatedAuth). Leave all three empty to disable that fallback
+	// entirely — invite/uninvite will then just fail with
+	// "delegation_required" on a bare service account, same as before this
+	// existed.
+	QString oauthClientId;
+	QString oauthClientSecret;
+	QString userTokenPath;
+
 	// Reads and validates a config JSON file at `path`. On failure, returns
 	// false and fills `error` with a message suitable for logging as-is.
 	static bool load( const QString &path, Config &out, QString &error );

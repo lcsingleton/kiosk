@@ -30,6 +30,7 @@ CalendarBridge::CalendarBridge( const QString &snapshotPath, const QString &sock
 				 const QString what = m_pendingWhat.take( commandId );
 				 emit commandFailed( commandId, what, errorCode, errorMessage );
 			 } );
+	connect( &m_syncClient, &CalendarSyncClient::authorizationRequired, this, &CalendarBridge::authorizationRequired );
 }
 
 void CalendarBridge::reloadSnapshot()
@@ -72,6 +73,11 @@ QVariantList CalendarBridge::weekend() const
 QVariantList CalendarBridge::upcoming() const
 {
 	return arrayProperty( "upcoming" );
+}
+
+QString CalendarBridge::defaultCalendarId() const
+{
+	return m_snapshot.value( QLatin1String( "defaultCalendarId" ) ).toString();
 }
 
 QString CalendarBridge::scheduleEvent( const QString &calendarId, const QString &summary,

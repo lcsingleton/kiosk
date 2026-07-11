@@ -32,6 +32,9 @@ class CalendarBridge : public QObject
 	Q_PROPERTY( QVariantList todaySchedule READ todaySchedule NOTIFY snapshotChanged )
 	Q_PROPERTY( QVariantList weekend READ weekend NOTIFY snapshotChanged )
 	Q_PROPERTY( QVariantList upcoming READ upcoming NOTIFY snapshotChanged )
+	// Which calendar a newly-created event lands on — see main.cpp's
+	// "defaultCalendarId" comment for why this isn't per-person.
+	Q_PROPERTY( QString defaultCalendarId READ defaultCalendarId NOTIFY snapshotChanged )
 
   public:
 	explicit CalendarBridge( const QString &snapshotPath, const QString &socketPath,
@@ -42,6 +45,7 @@ class CalendarBridge : public QObject
 	QVariantList todaySchedule() const;
 	QVariantList weekend() const;
 	QVariantList upcoming() const;
+	QString defaultCalendarId() const;
 
 	// Each returns the generated commandId immediately (before the result
 	// is known) so QML can correlate it with commandSucceeded/commandFailed
@@ -67,6 +71,7 @@ class CalendarBridge : public QObject
 	void commandSucceeded( const QString &commandId, const QString &what );
 	void commandFailed( const QString &commandId, const QString &what, const QString &errorCode,
 						const QString &errorMessage );
+	void authorizationRequired( const QString &verificationUrl, const QString &userCode, int expiresInSecs );
 
   private slots:
 	void reloadSnapshot();

@@ -31,10 +31,13 @@ Window {
         eventEditPopup.open()
     }
 
+    // personName only decides where the popup starts (its initial hour);
+    // there's no per-person calendar to create the event on, so every new
+    // event lands on the household's default calendar regardless of which
+    // person's column was tapped — see main.cpp's "defaultCalendarId" comment.
     function openCreatePopup(personName, approxHour) {
-        const person = data.people.find(p => p.name === personName)
         eventEditPopup.isNew = true
-        eventEditPopup.newCalendarId = person ? person.calendarId : ""
+        eventEditPopup.newCalendarId = calendarBridge.defaultCalendarId
         eventEditPopup.event = { title: "" }
         eventEditPopup.newStartHour = approxHour
         eventEditPopup.open()
@@ -66,6 +69,9 @@ Window {
         }
         function onCommandFailed(commandId, what, errorCode, errorMessage) {
             errorBanner.show(what + ": " + errorMessage)
+        }
+        function onAuthorizationRequired(verificationUrl, userCode, expiresInSecs) {
+            authPromptBanner.show(verificationUrl, userCode, expiresInSecs)
         }
     }
 
@@ -135,15 +141,15 @@ Window {
         }
 
         // ---- scrollable dashboard body ----------------------------------
-        Flickable {
-            id: flick
-            anchors.top: header.bottom
-            anchors.bottom: parent.bottom
-            anchors.left: parent.left
-            anchors.right: parent.right
-            contentHeight: dashboardGrid.height + 28
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
+//        Flickable {
+  //          id: flick
+    //        anchors.top: header.bottom
+      //      anchors.bottom: parent.bottom
+        //    anchors.left: parent.left
+          //  anchors.right: parent.right
+            //contentHeight: dashboardGrid.height + 28
+  //          clip: true
+//            boundsBehavior: Flickable.StopAtBounds
 
             GridLayout {
                 id: dashboardGrid
@@ -186,7 +192,7 @@ Window {
                     onCreateRequested: (person, hour) => openCreatePopup(person, hour)
                 }
             }
-        }
+    //    }
 
         InputPanel {
             id: inputPanel
@@ -196,8 +202,8 @@ Window {
             anchors.right: parent.right
         }
 
-        ErrorBanner {
-            id: errorBanner
+        Column {
+            id: bannerColumn
             z: 100
             anchors.top: canvas.top
             anchors.left: canvas.left
@@ -205,6 +211,19 @@ Window {
             anchors.topMargin: 84
             anchors.leftMargin: 16
             anchors.rightMargin: 16
+            spacing: 8
+
+            ErrorBanner {
+                id: errorBanner
+                anchors.left: parent.left
+                anchors.right: parent.right
+            }
+
+            AuthPromptBanner {
+                id: authPromptBanner
+                anchors.left: parent.left
+                anchors.right: parent.right
+            }
         }
 
         EventEditPopup {

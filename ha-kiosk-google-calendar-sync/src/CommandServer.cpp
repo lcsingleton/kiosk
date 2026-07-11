@@ -1,5 +1,6 @@
 #include "CommandServer.h"
 #include "CalendarClient.h"
+#include "DelegatedAuth.h"
 
 #include <QDebug>
 #include <QJsonArray>
@@ -35,13 +36,20 @@ QString attendeeBatchKey( const QString &calendarId, const QString &eventId )
 }
 } // namespace
 
-CommandServer::CommandServer( CalendarClient *client, const QVector<PersonConfig> &people, QObject *parent )
+CommandServer::CommandServer( CalendarClient *client, const QVector<PersonConfig> &people,
+							  DelegatedAuth *delegatedAuth, QObject *parent )
 	: QObject( parent ), m_client( client )
 {
 	for ( const PersonConfig &p : people )
 		m_peopleByName.insert( p.person, p );
 
 	connect( &m_server, &QLocalServer::newConnection, this, &CommandServer::onNewConnection );
+
+	if ( delegatedAuth )
+	{
+		connect( delegatedAuth, &DelegatedAuth::authorizationPending, this,
+				&CommandServer::broadcastAuthorizationPending );
+	}
 
 	m_handlers[CommandAction::ScheduleEvent] =
 		[this]( const Command &c, std::function<void( Result )> reply ) { handleSchedule( c, reply ); };
@@ -160,6 +168,18 @@ void CommandServer::sendResult( QLocalSocket *socket, const Result &result )
 		emit writeSucceeded();
 }
 
+void CommandServer::broadcastAuthorizationPending( const QString &verificationUrl, const QString &userCode,
+													int expiresInSecs )
+{
+	const AuthorizationPendingEvent event{ verificationUrl, userCode, expiresInSecs };
+	const QByteArray line = QJsonDocument( event.toJson() ).toJson( QJsonDocument::Compact ) + "\n";
+	for ( QLocalSocket *socket : m_recvBuffers.keys() )
+	{
+		socket->write( line );
+		socket->flush();
+	}
+}
+
 void CommandServer::handleSchedule( const Command &cmd, std::function<void( Result )> reply )
 {
 	const auto payload = ScheduleEventPayload::fromJson( cmd.payload );
@@ -257,7 +277,8 @@ void CommandServer::handleInviteParticipant( const Command &cmd, std::function<v
 	const auto personIt = m_peopleByName.constFind( payload.person );
 	if ( payload.person.isEmpty() || personIt == m_peopleByName.constEnd() || personIt->emails.isEmpty() )
 	{
-		reply( Result::failure( cmd.commandId, QStringLiteral( "invalid_request" ),
+		reply( Result::failure( cmd.commandId, 
+								QStringLiteral( "invalid_request" ),
 								QStringLiteral( "InviteParticipant requires a known payload.person" ) ) );
 		return;
 	}
@@ -270,14 +291,17 @@ void CommandServer::handleUninviteParticipant( const Command &cmd, std::function
 	const auto personIt = m_peopleByName.constFind( payload.person );
 	if ( payload.person.isEmpty() || personIt == m_peopleByName.constEnd() )
 	{
-		reply( Result::failure( cmd.commandId, QStringLiteral( "invalid_request" ),
+		reply( Result::failure( cmd.commandId,
+								QStringLiteral( "invalid_request" ),
 								QStringLiteral( "UninviteParticipant requires a known payload.person" ) ) );
 		return;
 	}
 	queueAttendeeChange( cmd, payload.person, false, reply );
 }
 
-void CommandServer::queueAttendeeChange( const Command &cmd, const QString &person, bool invited,
+void CommandServer::queueAttendeeChange( const Command &cmd,
+										 const QString &person,
+										 bool invited,
 										 std::function<void( Result )> reply )
 {
 	const QString key = attendeeBatchKey( cmd.calendarId, cmd.eventId );
@@ -285,7 +309,6 @@ void CommandServer::queueAttendeeChange( const Command &cmd, const QString &pers
 	PendingAttendeeBatch &batch = m_pendingAttendeeBatches[key];
 	batch.calendarId = cmd.calendarId;
 	batch.eventId = cmd.eventId;
-	batch.etag = cmd.etag;
 	batch.deltas.insert( person, invited ); // a later tap for the same person within the window wins
 	batch.pending.append( { cmd.commandId, reply } );
 
@@ -355,8 +378,15 @@ void CommandServer::flushAttendeeBatch( const QString &key )
 
 			QJsonObject patchBody;
 			patchBody["attendees"] = next;
+			// The freshly-fetched event's etag, not batch.etag (the one the
+			// kiosk's original tap was sent with) — that one can be
+			// significantly stale by now: this PATCH may only be happening
+			// after the delegated-auth device-code flow finished, which can
+			// take minutes, so matching against a snapshot from before that
+			// wait started would spuriously 412 even when nothing else
+			// touched the event.
 			m_client->patchEvent(
-				batch.calendarId, batch.eventId, batch.etag, patchBody,
+				batch.calendarId, batch.eventId, event.value( "etag" ).toString(), patchBody,
 				[batch]( QJsonObject, QString patchCode, QString patchMessage ) {
 					for ( const PendingAttendeeReply &p : batch.pending )
 					{
