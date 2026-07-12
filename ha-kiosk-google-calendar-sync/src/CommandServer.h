@@ -6,8 +6,8 @@
 #include <QVector>
 #include <functional>
 
-#include "Config.h"
 #include "calendar-sync-client/CommandTypes.h"
+#include "Config.h"
 
 class CalendarClient;
 class DelegatedAuth;

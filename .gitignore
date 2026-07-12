@@ -1,6 +1,11 @@
 # Build output
 app/build/
 build/
+dist/
+
+# Emulator's live /etc/kiosk (seeded from *.example.json by run.sh) — holds
+# whatever service-account key path/geohash/calendars you point it at
+etc-kiosk/
 
 # CMake
 CMakeCache.txt

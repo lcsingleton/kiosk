@@ -4,8 +4,9 @@ This is the walkthrough for installing the built app on the tablet's Debian
 12 rootfs — nothing here is part of the Docker dev flow (`../docker/`). The
 config files it references live next to their owning module — `../ha-kiosk/etc/`
 for the systemd unit and udev/module-load rules,
-`../ha-kiosk-google-calendar-sync/etc/` for the daemon's example config —
-and each mirrors its destination path on the
+`../ha-kiosk-google-calendar-sync/etc/` and `../ha-kiosk-weather-sync/etc/`
+for each daemon's example config, and each module's own `etc/logrotate.d/`
+for its `/var/log` rotation config — and each mirrors its destination path on the
 tablet (`ha-kiosk/etc/udev/rules.d/` becomes `/etc/udev/rules.d/` there, same as a
 build system's DESTDIR staging tree), so each `cp` below just copies the
 matching relative path across. Unlike
@@ -91,29 +92,56 @@ device and become master with nothing to fight.
    state (command socket, snapshot, single-instance lock) lives under
    `/run/kiosk`, created automatically by the unit's `RuntimeDirectory=`
    below — `kiosk.conf` is only needed if you ever run the binary outside
-   this unit (e.g. manual `--once` testing):
+   this unit (e.g. manual `--once` testing). Its logs land under
+   `/var/log/ha-kiosk-google-calendar-sync/`, created the same way by the
+   unit's `LogsDirectory=`, rotated per `logrotate.d`:
 
    ```
    sudo mkdir -p /etc/kiosk
    sudo cp ../ha-kiosk-google-calendar-sync/etc/daemon-config.example.json /etc/kiosk/daemon-config.json
    # edit /etc/kiosk/daemon-config.json: serviceAccountKeyPath, calendars, people
    sudo cp ../ha-kiosk-google-calendar-sync/etc/tmpfiles.d/kiosk.conf /etc/tmpfiles.d/
+   sudo cp ../ha-kiosk-google-calendar-sync/etc/logrotate.d/ha-kiosk-google-calendar-sync /etc/logrotate.d/
    sudo cp ../ha-kiosk-google-calendar-sync/etc/systemd/system/ha-kiosk-google-calendar-sync.service /etc/systemd/system/
    sudo systemctl enable --now ha-kiosk-google-calendar-sync.service
    ```
 
-7. Install and enable the kiosk service:
+7. Install the weather-sync daemon's config, then enable it. Same
+   `/run/kiosk` runtime dir as the calendar daemon above, and its own
+   `/var/log/ha-kiosk-weather-sync/`:
 
    ```
+   sudo cp ../ha-kiosk-weather-sync/etc/daemon-config.example.json /etc/kiosk/weather-config.json
+   # edit /etc/kiosk/weather-config.json: geohash (see the file's own comment for how to resolve one)
+   sudo cp ../ha-kiosk-weather-sync/etc/logrotate.d/ha-kiosk-weather-sync /etc/logrotate.d/
+   sudo cp ../ha-kiosk-weather-sync/etc/systemd/system/ha-kiosk-weather-sync.service /etc/systemd/system/
+   sudo systemctl enable --now ha-kiosk-weather-sync.service
+   ```
+
+8. Install and enable the kiosk service (logs to `/var/log/ha-kiosk/` the
+   same way):
+
+   ```
+   sudo cp ../ha-kiosk/etc/logrotate.d/ha-kiosk /etc/logrotate.d/
    sudo cp ../ha-kiosk/etc/systemd/system/kiosk.service /etc/systemd/system/
    sudo systemctl enable --now kiosk.service
    ```
 
-8. Reboot, then check both came up on their own:
+9. Set the system timezone — Debian defaults to UTC, and the app has no
+   timezone override of its own (it trusts the system clock for every
+   local-time computation: new-event creation, the header clock, the
+   agenda's "now" line), so skipping this step means new events get created
+   in GMT instead of wherever the tablet actually is:
 
    ```
-   systemctl status ha-kiosk-google-calendar-sync kiosk
-   journalctl -u ha-kiosk-google-calendar-sync -u kiosk -f
+   sudo timedatectl set-timezone Australia/Sydney   # replace with the tablet's actual zone
+   ```
+
+10. Reboot, then check all three came up on their own:
+
+   ```
+   systemctl status ha-kiosk-google-calendar-sync ha-kiosk-weather-sync kiosk
+   journalctl -u ha-kiosk-google-calendar-sync -u ha-kiosk-weather-sync -u kiosk -f
    ```
 
 `kiosk.service` targets `multi-user.target`, not `graphical.target` — there's

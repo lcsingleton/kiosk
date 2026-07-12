@@ -7,8 +7,16 @@ Wants=network-online.target
 User=kiosk
 Group=kiosk
 ExecStart=/opt/kiosk/bin/ha-kiosk-google-calendar-sync --config /etc/kiosk/daemon-config.json
+# Shared with ha-kiosk-weather-sync.service (same RuntimeDirectory=kiosk —
+# ha-kiosk the app reads both daemons' snapshots from one well-known dir).
+# Preserve=yes so a restart of *this* unit doesn't blow away the other
+# daemon's snapshot/lock files sitting in the same directory; still starts
+# fresh at actual boot, since /run itself is a new tmpfs then.
 RuntimeDirectory=kiosk
+RuntimeDirectoryPreserve=yes
 RuntimeDirectoryMode=0750
+LogsDirectory=ha-kiosk-google-calendar-sync
+LogsDirectoryMode=0750
 Restart=always
 RestartSec=1
 StandardOutput=journal

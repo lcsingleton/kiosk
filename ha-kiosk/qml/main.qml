@@ -31,13 +31,15 @@ Window {
         eventEditPopup.open()
     }
 
-    // personName only decides where the popup starts (its initial hour);
-    // there's no per-person calendar to create the event on, so every new
-    // event lands on the household's default calendar regardless of which
-    // person's column was tapped — see main.cpp's "defaultCalendarId" comment.
+    // personName decides the popup's initial hour and prefills them as an
+    // attendee (the column the user tapped in) — but not which calendar it's
+    // created on: there's no per-person calendar, so every new event lands
+    // on the household's default calendar regardless of which person's
+    // column was tapped — see main.cpp's "defaultCalendarId" comment.
     function openCreatePopup(personName, approxHour) {
         eventEditPopup.isNew = true
         eventEditPopup.newCalendarId = calendarBridge.defaultCalendarId
+        eventEditPopup.newAttendee = personName
         eventEditPopup.event = { title: "" }
         eventEditPopup.newStartHour = approxHour
         eventEditPopup.open()
@@ -140,59 +142,54 @@ Window {
             }
         }
 
-        // ---- scrollable dashboard body ----------------------------------
-//        Flickable {
-  //          id: flick
-    //        anchors.top: header.bottom
-      //      anchors.bottom: parent.bottom
-        //    anchors.left: parent.left
-          //  anchors.right: parent.right
-            //contentHeight: dashboardGrid.height + 28
-  //          clip: true
-//            boundsBehavior: Flickable.StopAtBounds
+        // ---- dashboard body ----------------------------------------------
+        // Canvas is a fixed 1920x1080, so the grid never scrolls as a
+        // whole; individual cards implement their own internal scrolling
+        // where their content can exceed the space available to them.
+        GridLayout {
+            id: dashboardGrid
+            anchors.top: header.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.topMargin: 8
+            anchors.leftMargin: 18
+            anchors.rightMargin: 18
+            columns: 2
+            columnSpacing: 14
+            rowSpacing: 14
 
-            GridLayout {
-                id: dashboardGrid
-                x: 18
-                y: 8
-                width: flick.width - 36
-                columns: 2
-                columnSpacing: 14
-                rowSpacing: 14
-
-                // paired with ShoppingListCard below (both compact,
-                // controls-first) so the grid actually earns its two
-                // columns instead of every section spanning full width
-                // like a single stacked feed
-                ClimateCard {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: false
-                    Layout.alignment: Qt.AlignTop
-                    dashboardData: data
-                }
-
-                ShoppingListCard {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: false
-                    Layout.alignment: Qt.AlignTop
-                    dashboardData: data
-                }
-
-                WeatherCard {
-                    Layout.columnSpan: 2
-                    Layout.fillWidth: true
-                    dashboardData: data
-                }
-
-                CalendarCard {
-                    Layout.columnSpan: 2
-                    Layout.fillWidth: true
-                    dashboardData: data
-                    onEditRequested: (item, titleKey) => openEditPopup(item, titleKey)
-                    onCreateRequested: (person, hour) => openCreatePopup(person, hour)
-                }
+            // paired with ShoppingListCard below (both compact,
+            // controls-first) so the grid actually earns its two
+            // columns instead of every section spanning full width
+            // like a single stacked feed
+            ClimateCard {
+                Layout.fillWidth: true
+                Layout.fillHeight: false
+                Layout.alignment: Qt.AlignTop
+                dashboardData: data
             }
-    //    }
+
+            ShoppingListCard {
+                Layout.fillWidth: true
+                Layout.fillHeight: false
+                Layout.alignment: Qt.AlignTop
+                dashboardData: data
+            }
+
+            WeatherCard {
+                Layout.columnSpan: 2
+                Layout.fillWidth: true
+                dashboardData: data
+            }
+
+            CalendarCard {
+                Layout.columnSpan: 2
+                Layout.fillWidth: true
+                dashboardData: data
+                onEditRequested: (item, titleKey) => openEditPopup(item, titleKey)
+                onCreateRequested: (person, hour) => openCreatePopup(person, hour)
+            }
+        }
 
         InputPanel {
             id: inputPanel

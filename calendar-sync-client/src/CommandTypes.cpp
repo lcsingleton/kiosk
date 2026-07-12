@@ -1,5 +1,7 @@
 #include "calendar-sync-client/CommandTypes.h"
 
+#include <QJsonArray>
+
 Command Command::fromJson( const QJsonObject &obj )
 {
 	Command c;
@@ -54,6 +56,8 @@ ScheduleEventPayload ScheduleEventPayload::fromJson( const QJsonObject &obj )
 	p.start = obj.value( "start" ).toString();
 	p.end = obj.value( "end" ).toString();
 	p.description = obj.value( "description" ).toString();
+	for ( const QJsonValue &v : obj.value( "attendees" ).toArray() )
+		p.attendees.append( v.toString() );
 	return p;
 }
 
@@ -62,6 +66,8 @@ QJsonObject ScheduleEventPayload::toJson() const
 	QJsonObject obj{ { "summary", summary }, { "start", start }, { "end", end } };
 	if ( !description.isEmpty() )
 		obj["description"] = description;
+	if ( !attendees.isEmpty() )
+		obj["attendees"] = QJsonArray::fromStringList( attendees );
 	return obj;
 }
 

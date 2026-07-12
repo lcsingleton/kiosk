@@ -23,17 +23,17 @@ DashboardCard {
         ColumnLayout {
             spacing: 1
             Text { text: "Humidity"; color: "#8296b8"; font.pixelSize: 12 }
-            Text { text: "62%"; color: "#eef2f9"; font.pixelSize: 17; font.bold: true }
+            Text { text: dashboardData.humidity; color: "#eef2f9"; font.pixelSize: 17; font.bold: true }
         }
         ColumnLayout {
             spacing: 1
             Text { text: "Wind"; color: "#8296b8"; font.pixelSize: 12 }
-            Text { text: "14 km/h"; color: "#eef2f9"; font.pixelSize: 17; font.bold: true }
+            Text { text: dashboardData.windSpeed; color: "#eef2f9"; font.pixelSize: 17; font.bold: true }
         }
         ColumnLayout {
             spacing: 1
             Text { text: "Rain today"; color: "#8296b8"; font.pixelSize: 12 }
-            Text { text: "0.0 mm"; color: "#eef2f9"; font.pixelSize: 17; font.bold: true }
+            Text { text: dashboardData.rainToday; color: "#eef2f9"; font.pixelSize: 17; font.bold: true }
         }
     }
 

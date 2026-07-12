@@ -27,6 +27,12 @@ Popup {
     property bool isNew: false
     property string newCalendarId: ""
     property real newStartHour: 9
+    // The person whose column was tapped to create this event — prefilled
+    // as an attendee below. Only meaningful with isNew; newAttendeeNames
+    // is the actual editable selection (seeded from this on open), since
+    // a create-mode tap can still add/remove others before hitting Create.
+    property string newAttendee: ""
+    property var newAttendeeNames: []
     // Passed through to AttendeeBadges so a tap here shows up immediately
     // wherever else this event's badges are showing (weekend/upcoming row,
     // agenda chip) — see AttendeeBadges.qml.
@@ -56,6 +62,7 @@ Popup {
             const m = Math.round((newStartHour - h) * 60)
             startField.text = pad2(h) + ":" + pad2(m)
             durationField.text = "60"
+            newAttendeeNames = newAttendee ? [newAttendee] : []
         } else if (event && event.startIso) {
             const s = new Date(event.startIso)
             const e = new Date(event.endIso)
@@ -135,7 +142,8 @@ Popup {
                     const newEnd = new Date(newStart.getTime() + parseInt(durationField.text, 10) * 60000)
                     if (popup.isNew) {
                         calendarBridge.scheduleEvent(popup.newCalendarId, titleField.text,
-                                                      newStart.toISOString(), newEnd.toISOString())
+                                                      newStart.toISOString(), newEnd.toISOString(),
+                                                      "", popup.newAttendeeNames)
                         popup.close()
                     } else {
                         calendarBridge.rescheduleEvent(popup.event.calendarId, popup.event.eventId,
@@ -148,17 +156,34 @@ Popup {
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
-            visible: !popup.isNew
             Text { text: "Attendees"; color: "#8296b8"; font.pixelSize: 13 }
             AttendeeBadges {
-                attendees: (popup.event && popup.event.attendees) || []
-                dashboardData: popup.dashboardData
-                eventId: (popup.event && popup.event.eventId) || ""
+                // Create mode has no event yet to invite/uninvite against —
+                // badges are built from every configured person instead,
+                // flagged invited per the local newAttendeeNames selection,
+                // and dashboardData is left null so tapping one just edits
+                // that selection below rather than touching the (nonexistent)
+                // overrides/live-invite path the edit-mode branch uses.
+                attendees: popup.isNew
+                    ? calendarBridge.people.map(p => ({ name: p.name, color: p.color,
+                                                         invited: popup.newAttendeeNames.indexOf(p.name) >= 0 }))
+                    : (popup.event && popup.event.attendees) || []
+                dashboardData: popup.isNew ? null : popup.dashboardData
+                eventId: popup.isNew ? "" : (popup.event && popup.event.eventId) || ""
                 onToggled: (person, invited) => {
-                    if (invited)
+                    if (popup.isNew) {
+                        const names = popup.newAttendeeNames.slice()
+                        const idx = names.indexOf(person)
+                        if (invited && idx < 0)
+                            names.push(person)
+                        else if (!invited && idx >= 0)
+                            names.splice(idx, 1)
+                        popup.newAttendeeNames = names
+                    } else if (invited) {
                         calendarBridge.inviteParticipant(popup.event.calendarId, popup.event.eventId, popup.event.etag, person)
-                    else
+                    } else {
                         calendarBridge.uninviteParticipant(popup.event.calendarId, popup.event.eventId, popup.event.etag, person)
+                    }
                 }
             }
         }

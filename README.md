@@ -24,28 +24,61 @@ tablet.
   `ha-kiosk` (client side) and the daemon's `CommandServer` (server side of
   the same protocol). Lives at the root rather than nested under either
   consumer, since both link it.
-- [`docker/`](docker/) + [`run.sh`](run.sh) — Debian 12 dev container (eglfs,
-  SSH, I2C/USB tooling). Not a hardware-accurate clone of the tablet's Mali
-  GPU — it uses whatever DRM/KMS device your dev box has (here: `amdgpu` via
-  `/dev/dri/card1`). Good enough to validate app logic, layout, and the
-  I2C/USB sensor+LED path; GPU-driver-specific eglfs quirks will need a final
-  check on the actual tablet. **Never deployed anywhere** — dev-only.
+- [`docker/build.Dockerfile`](docker/build.Dockerfile) + [`build.sh`](build.sh)
+  — build-only Debian 12 image (Qt6 dev headers, no SSH, no runtime QML
+  modules). Compiles the repo and stages install output into `./dist` via
+  `DESTDIR=dist cmake --install build` — the same FHS tree
+  [`deploy/README.md`](deploy/README.md) installs by hand on the tablet, and
+  what a future `dpkg-buildpackage`-style `.deb` would stage too.
+- [`docker/dev.Dockerfile`](docker/dev.Dockerfile) + [`run.sh`](run.sh) — the
+  emulator: a Debian 12 container that runs `systemd` as PID 1 so the
+  **real** `kiosk.service`/`ha-kiosk-google-calendar-sync.service`/
+  `ha-kiosk-weather-sync.service` units (deploy/README.md) come up on their
+  own, against whatever `/dev/dri/*`, `/dev/i2c-*`, `/dev/gpiochip*` your dev
+  box passes through — no manual build/run step once it's up. Not a
+  hardware-accurate clone of the tablet's Mali GPU — it uses whatever
+  DRM/KMS device your dev box has (here: `amdgpu` via `/dev/dri/card0`).
+  Good enough to validate app logic, layout, and the I2C/USB sensor+LED
+  path; GPU-driver-specific eglfs quirks will need a final check on the
+  actual tablet. **Never deployed anywhere** — dev-only.
 - [`deploy/README.md`](deploy/README.md) — the walkthrough for installing
   the built app on the tablet's Debian 12: packages, hardware wiring, and
   where each module's `etc/` files land. **Nothing here runs in Docker.**
 
-## Build + run (dev container)
+## Build + run (build container + emulator)
 
 ```
-./run.sh
+./build.sh   # compiles, stages ./dist/opt/kiosk + ./dist/etc
+./run.sh     # loads i2c-dev/hid-mcp2221 on the host, starts the emulator
 ```
 
-This loads `i2c-dev`/`hid-mcp2221` on the **host**, builds the image, and
-passes through whatever `/dev/dri/*`, `/dev/i2c-*`, `/dev/gpiochip*` exist at
-that moment. Then:
+`run.sh` bind-mounts `./dist/opt/kiosk` (read-only) and a seeded
+`./etc-kiosk/` (from the `*.example.json` files, first run only — same
+manual step as deploy/README.md steps 6-7, just automated) into the
+container, then passes through whatever `/dev/dri/*`, `/dev/i2c-*`,
+`/dev/gpiochip*` exist at that moment. It runs `systemd` as PID 1, so all
+three services are up immediately — then it stops the headless, auto-started
+`kiosk.service` and opens `ha-kiosk` itself over `ssh -Y` (see "Windowed
+preview" below), so `./run.sh` drops you straight
+into a window with the app running, no separate manual step. Ctrl+C or close
+the window when done; re-run `./run.sh` to reopen it, or `docker exec
+ha-tab-kiosk-dev systemctl start kiosk.service` for the headless copy
+instead (only ever check on that one via `journalctl`/`systemctl status` —
+see "Full DRM master" below for why you should never VT-switch to watch it).
+
+The calendar-sync daemon will crash-loop harmlessly until
+`etc-kiosk/daemon-config.json`'s `serviceAccountKeyPath` points at a real key
+(edit it, then `docker exec ha-tab-kiosk-dev systemctl restart
+ha-kiosk-google-calendar-sync`) — everything else, including weather-sync,
+comes up working out of the box.
+
+After a source change, re-run `./build.sh` (incremental — it reuses `./build`
+and `./dist` across runs) then re-run `./run.sh` to pick up the new
+binaries (or, to avoid recreating the container, just restart the services
+and reopen the window yourself):
 
 ```
-ssh -p 2222 kiosk@localhost   # password: kiosk
+docker exec ha-tab-kiosk-dev systemctl restart kiosk ha-kiosk-google-calendar-sync ha-kiosk-weather-sync
 ```
 
 If you plug/unplug the MCP2221A, re-run `./run.sh` so the device list is
@@ -112,24 +145,31 @@ cd ha-kiosk && cmake -B build && cmake --build build
 the root build below to also build the calendar-sync daemon, which
 additionally needs `libssl-dev` and links `Qt6::Network`.)
 
-Build/run the same source inside the container over SSH, forcing eglfs.
-`run.sh` bind-mounts the **whole repo** to `/home/kiosk/kiosk` (not just
-`ha-kiosk/` — the calendar-sync daemon in `ha-kiosk-google-calendar-sync/`
-needs to be reachable too), so it's already there — edit on the host,
-build/run over SSH. The root [`CMakeLists.txt`](CMakeLists.txt) builds both
-`ha-kiosk/` and `ha-kiosk-google-calendar-sync/` as sibling targets from one
-`cmake -B build`:
+Build/run the same source in the emulator, forcing eglfs. The root
+[`CMakeLists.txt`](CMakeLists.txt) builds `ha-kiosk/`,
+`ha-kiosk-google-calendar-sync/`, and `ha-kiosk-weather-sync/` as sibling
+targets from one `cmake -B build`, done by [`build.sh`](build.sh) (not
+inside the emulator — it has no build tools, see above):
 
 ```
-ssh -p 2222 kiosk@localhost
-cd /home/kiosk/kiosk
-cmake -B build && cmake --build build
-QT_QPA_PLATFORM=eglfs QT_QPA_EGLFS_ALWAYS_SET_MODE=1 ./build/bin/ha-kiosk
+./build.sh && ./run.sh
 ```
 
-The daemon binary lands at `./build/bin/ha-kiosk-google-calendar-sync` — run
-it with `--config <path>` pointing at a daemon config (see
-[`ha-kiosk-google-calendar-sync/etc/daemon-config.example.json`](ha-kiosk-google-calendar-sync/etc/daemon-config.example.json)).
+`run.sh` already opens `ha-kiosk` for you in a window (see "Windowed
+preview" below) — no manual invocation needed for day-to-day iteration. To
+run it by hand instead (e.g. to try one-off env vars):
+
+```
+ssh -Y -p 2222 kiosk@localhost
+/opt/kiosk/bin/ha-kiosk
+```
+
+The daemon binary lands at `/opt/kiosk/bin/ha-kiosk-google-calendar-sync` —
+`ha-kiosk-google-calendar-sync.service` already runs it with `--config
+/etc/kiosk/daemon-config.json` (seeded from
+[`ha-kiosk-google-calendar-sync/etc/daemon-config.example.json`](ha-kiosk-google-calendar-sync/etc/daemon-config.example.json)
+by `run.sh`'s first run — edit `etc-kiosk/daemon-config.json` on the host,
+then `systemctl restart` it).
 
 If SSH throws you into a GUI `ksshaskpass` dialog that can't parse the
 host-key/password prompts (seen on KDE desktops — it hijacks any `ssh`
@@ -157,81 +197,108 @@ mode — it grabs DRM master, so it will fail with `drmSetMaster failed:
 Permission denied` while your desktop compositor is also holding the GPU.
 See the VT-switch dance below if you need this exact path.
 
-## Windowed eglfs (no VT switching, no stealing the whole screen)
+## Windowed preview (no VT switching, no stealing the whole screen)
 
 For day-to-day UI iteration you don't want to fight your desktop compositor
-for the GPU every time. Qt's eglfs platform ships a second device-integration
-backend, `eglfs_x11`, that renders through EGL into a normal X11 window
-instead of taking DRM master — same `eglfs` QPA platform code paths in your
-app, just windowed. It's already on this box (`libqeglfs-x11-integration.so`
-from `libqt6opengl6`) and now installed in the image too.
-
-Rebuild the image (adds `libqt6opengl6` + `xauth`, enables SSH X11
-forwarding), then:
+for the GPU every time. `docker/dev.Dockerfile` has SSH X11 forwarding
+enabled, so `./run.sh` opens `ha-kiosk` for you over a forwarded X11
+connection — **this is what `./run.sh` opens by default**:
 
 ```
-./run.sh                                             # rebuilds + runs
-SSH_ASKPASS_REQUIRE=never ssh -X -p 2222 kiosk@localhost   # -X forwards X11 over the SSH tunnel
-```
-
-(see the `ksshaskpass` note above if plain `ssh -X` hangs/fails on prompts)
-
-Inside that SSH session:
-
-```
-export QT_QPA_PLATFORM=eglfs
-export QT_QPA_EGLFS_INTEGRATION=eglfs_x11
-export QT_QPA_EGLFS_WIDTH=1080
-export QT_QPA_EGLFS_HEIGHT=1920
 export QT_IM_MODULE=qtvirtualkeyboard
-./build/bin/ha-kiosk
+/opt/kiosk/bin/ha-kiosk
 ```
 
-`QT_QPA_EGLFS_WIDTH`/`HEIGHT` force the logical screen size eglfs reports to
-the app — independent of whatever the real backend (X11 here, KMS on the
-tablet) would've reported.
+Deliberately **no** `QT_QPA_PLATFORM` override. An earlier version of this
+container forced `QT_QPA_PLATFORM=eglfs` with the `eglfs_x11`
+device-integration backend (renders through EGL into a normal X11 window
+instead of taking DRM master — same `eglfs` QPA code paths the app uses on
+the tablet, just windowed). That turned out to be the source of every
+windowed-preview bug hit during this container's refactor: dead keyboard
+input, content that never repaints after alt-tabbing away and back, no
+I-beam cursor over text fields. Root cause: `eglfs` is built for a single
+surface that continuously owns the whole display and is never obscured —
+true on the tablet's real DRM/KMS output, never true of a window on your
+desktop that you can alt-tab away from — so `eglfs_x11` simply doesn't wire
+up expose/focus/cursor-theme handling the way a real desktop platform does.
+Leaving `QT_QPA_PLATFORM` unset lets Qt fall back to its normal `xcb`
+platform instead, which handles all of that correctly.
+
+Use `-Y`, not `-X`, for the SSH forwarding itself: `-X` is *untrusted*
+forwarding, which applies the X11 SECURITY extension and silently
+restricts/drops a specific set of requests on the connection (cursor shape
+changes among them). `-Y` is *trusted* forwarding and skips that
+restriction. Same "local single-user dev box only, never network-exposed"
+trust tradeoff already accepted elsewhere in this container.
+
+To run it by hand instead (e.g. from a different terminal alongside the
+one `run.sh` is holding open):
+
+```
+SSH_ASKPASS_REQUIRE=never ssh -Y -p 2222 kiosk@localhost   # -Y forwards X11 over the SSH tunnel, trusted
+```
+
+(see the `ksshaskpass` note above if plain `ssh -Y` hangs/fails on prompts),
+then the exported-vars block above inside that session.
 
 A window should appear on your host desktop via XWayland — no `xhost`, no
-socket bind-mounts, no VT switching required, since `ssh -X` sets up its own
-scoped `DISPLAY`/Xauthority for the session. Note it'll be **borderless and
-sized exactly 1080x1920**, not a normal titlebar'd window you can drag/resize
-— eglfs's model is "one surface = the screen," so even this x11-hosted dev
-backend creates a fixed-size undecorated window rather than a real one.
-Alt+Tab still gets you back to your desktop/terminal; it's not a real
-takeover like the DRM-master path below.
+socket bind-mounts, no VT switching required, since `ssh -Y` sets up its own
+scoped `DISPLAY`/Xauthority for the session. It's a normal resizable
+desktop window (Qt's default `xcb` platform, not eglfs), same as the plain
+host-desktop build above — `main.qml`'s `Window` sized 540x960 by default,
+with the whole UI sitting in a fixed 1080x1920 `Item` that scales uniformly
+(letterboxed, never stretched) to fit however you resize it. Alt+Tab works
+like a normal window because it *is* one.
 
-If what you actually want is to *resize* the window and see the UI scale to
-fit — e.g. checking layout at different sizes without the borderless/fixed
-constraint — skip eglfs entirely and use the plain host-desktop build
-instead (above). `main.qml`'s `Window` is a normal resizable window sized
-540x960 by default; the whole UI sits in a fixed 1080x1920 `Item` that scales
-uniformly (letterboxed, never stretched) to fit however you resize it.
+If you specifically need to validate `eglfs`/`eglfs_x11` behavior (fixed
+resolution, rotation, virtual-keyboard-without-a-compositor), export
+`QT_QPA_PLATFORM=eglfs QT_QPA_EGLFS_INTEGRATION=eglfs_x11
+QT_QPA_EGLFS_WIDTH=1080 QT_QPA_EGLFS_HEIGHT=1920 QSG_RENDER_LOOP=basic` by
+hand in a manual session (`QSG_RENDER_LOOP=basic` avoids a separate bug:
+Qt Quick's default threaded render loop waits on a "frame swapped"
+callback that can silently never arrive under `eglfs_x11` + software
+rendering over a forwarded connection — the first frame paints, then it
+never repaints again). Treat that as a one-off validation path, not the
+day-to-day loop, and still do a real full-screen DRM-master pass (below)
+before considering something "done" — `eglfs_x11` doesn't exercise real
+DRM/KMS mode-setting, exclusive-master behavior, or cursor handling on
+real hardware planes even when it's not actively broken.
 
-Caveat: `eglfs_x11` is a Qt-provided *development convenience* — it doesn't
-exercise real DRM/KMS mode-setting, exclusive-master behavior, or cursor
-handling on real hardware planes. Treat it as the fast iteration loop, and
-still do a real full-screen DRM-master pass (below) before considering
-something "done".
+## Full DRM master — do not test this locally via VT switching
 
-## Full DRM master (real full-screen, matches the tablet)
+**Do not switch to a local VT to let the emulator's `kiosk.service` grab
+full DRM master.** An earlier version of this doc recommended exactly that
+(retargeting `kiosk.service` to a spare host VT, e.g. `tty4`, then
+Ctrl+Alt+F4 to it) — testing it caused a hard lockup of the physical
+console (last-rendered frame frozen, no keyboard response, no way back
+except a hard reboot of the whole machine). Root cause, best understanding:
+Qt's eglfs KMS backend registers itself as the process the kernel signals
+on VT-switch-away so it can cleanly drop master first; that handshake needs
+a live, cooperating process, and this app is running across a container
+boundary, restarted by `Restart=always`, with no `/dev/input` passthrough
+for it to even receive input — if it crashes, hangs, or doesn't answer that
+signal, the kernel has no one to negotiate the switch with and the VT is
+stuck. Unlike a desktop compositor (which properly drops master on the
+`logind` Pause/Resume signal), there's no guarantee this container-run app
+does the equivalent cleanly.
 
-Only one process can hold DRM master on a card at a time, and your desktop
-compositor already holds it. To let the container's app take over the
-physical screen:
+The **real** validation of exclusive DRM-master/KMS behavior belongs on the
+actual tablet (deploy/README.md) — hardware you can power-cycle without
+losing your desktop session, not this dev box. `kiosk.service` in the
+emulator *does* still attempt DRM master automatically the moment it
+starts (unlike the old build-shell container, there's no manual opt-in),
+so if it's fighting your desktop compositor for `/dev/dri`, expect it to
+just fail with `drmSetMaster failed: Permission denied` and sit in its
+`Restart=always`/`RestartSec=1` loop harmlessly (`docker exec
+ha-tab-kiosk-dev journalctl -u kiosk -f`) — that's fine and expected, leave
+it be. For actually seeing/interacting with the app on this dev box, use
+the windowed preview above instead (or the manual `eglfs_x11` session for
+eglfs-specific checks) — no VT takeover, no risk to your session.
 
-```
-Ctrl+Alt+F3                              # switch to a free text console —
-                                          # logind tells your compositor to
-                                          # drop DRM master
-ssh -p 2222 kiosk@localhost              # from another machine, or a
-                                          # session opened before switching
-QT_QPA_PLATFORM=eglfs QT_QPA_EGLFS_ALWAYS_SET_MODE=1 ./build/bin/ha-kiosk
-```
-
-Ctrl+C the app, then Ctrl+Alt+F1 (or F2) to get back to your desktop. If the
-compositor doesn't release master on VT switch (`drmSetMaster failed:
-Permission denied` persists), fall back to `sudo systemctl stop sddm` to
-kill it outright, run the app, then `sudo systemctl start sddm`.
+(`docker/dev.Dockerfile` still retargets `kiosk.service`'s `TTYPath=`/
+`Conflicts=` from `tty1` to `tty4` via `sed` — that part's fine and unrelated
+to the lockup, it's about not fighting a real host getty for the *unit
+name*, not an invitation to VT-switch there.)
 
 ## Portrait output on the real tablet (1080x1920)
 
@@ -251,9 +318,10 @@ export QT_QPA_EGLFS_ROTATION=90    # or 270 — whichever matches your mount;
 `QT_QPA_EGLFS_ROTATION` rotates the composited output before it's scanned
 out, so the panel keeps running its native 1920x1080 KMS mode while the app
 sees (and lays out for) a 1080x1920 screen. It's the same generic eglfs
-option under `eglfs_x11`, so worth toggling now during the windowed dev loop
-above — cheaper to get 90 vs. 270 right on your desktop than by rebooting
-the tablet. Once confirmed, add all three `Environment=` lines to
+option under `eglfs_x11`, so worth toggling now during a manual `eglfs_x11`
+validation session (see "Windowed preview" above) — cheaper to get 90 vs.
+270 right on your desktop than by rebooting the tablet. Once confirmed, add
+all three `Environment=` lines to
 [`ha-kiosk/etc/systemd/system/kiosk.service`](ha-kiosk/etc/systemd/system/kiosk.service).
 
 ## On-screen keyboard
@@ -264,7 +332,7 @@ keyboard the way GNOME/KDE (or Wayland tools like `squeekboard`/`maliit`) do
 it runs inside your own Qt process as a QML component, not a separate
 service, so it needs nothing beyond what eglfs already gives you.
 
-Packages (already added to [`docker/Dockerfile`](docker/Dockerfile) and
+Packages (already added to [`docker/dev.Dockerfile`](docker/dev.Dockerfile) and
 [`deploy/README.md`](deploy/README.md)):
 `qml6-module-qtquick-virtualkeyboard`, `qt6-virtualkeyboard-plugin`.
 
@@ -296,7 +364,14 @@ screens.
   selection and any vendor-specific KMS quirks won't be caught here.
 - Container is `amd64` (or whatever your dev box is), tablet is `arm64` —
   fine for logic/UI prototyping, but don't ship binaries built here.
-- `run.sh`'s device passthrough is scoped to what's plugged in at build
-  time; the fallback `--privileged -v /dev:/dev` line in `run.sh` trades
-  that scoping for convenience against hotplug churn — only use it on a
-  trusted local box, never anything network-exposed.
+- `run.sh`'s device passthrough (`--device`) is scoped to what's plugged in
+  at run time, but the emulator container itself runs `--privileged` (plus
+  the cgroup/tmpfs mounts systemd-as-PID-1 needs) — broader than the old
+  build-shell container ever needed. Same "local single-user dev box only,
+  never network-exposed" trust tradeoff as before, just no longer optional.
+- TTYs are **not** namespaced away from the host the way PIDs/mounts/network
+  are — `/dev/ttyN` inside the emulator is the exact same device the host
+  sees. `kiosk.service`'s `Conflicts=getty@.service`/`TTYPath=` mechanism
+  still works, but it's fighting over a *real host console*, not some
+  container-private one — see "Full DRM master" above for why
+  `docker/dev.Dockerfile` retargets it from `tty1` to `tty4`.

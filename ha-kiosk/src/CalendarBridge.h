@@ -4,6 +4,7 @@
 #include <QHash>
 #include <QJsonObject>
 #include <QObject>
+#include <QStringList>
 #include <QVariantList>
 
 #include <calendar-sync-client/CalendarSyncClient.h>
@@ -52,7 +53,8 @@ class CalendarBridge : public QObject
 	// if it wants to, though most callers will just react to the signals.
 	Q_INVOKABLE QString scheduleEvent( const QString &calendarId, const QString &summary,
 									   const QString &startIso, const QString &endIso,
-									   const QString &description = QString() );
+									   const QString &description = QString(),
+									   const QStringList &attendees = QStringList() );
 	Q_INVOKABLE QString rescheduleEvent( const QString &calendarId, const QString &eventId,
 										 const QString &etag, const QString &newStartIso,
 										 const QString &newEndIso );

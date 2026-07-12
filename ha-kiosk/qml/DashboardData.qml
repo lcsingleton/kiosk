@@ -191,17 +191,9 @@ Item {
     // Remainder of today, hour by hour, continuing on from weatherHistory's
     // last point ("now") — the two are plotted as one continuous line on
     // the weather chart (see weatherSeries()), solid fading to dashed.
-    property var hourlyForecast: [
-        { hour: "3pm",  icon: "☀️", temp: 23 },
-        { hour: "4pm",  icon: "⛅", temp: 22 },
-        { hour: "5pm",  icon: "⛅", temp: 20 },
-        { hour: "6pm",  icon: "🌤️", temp: 18 },
-        { hour: "7pm",  icon: "🌙", temp: 16 },
-        { hour: "8pm",  icon: "🌙", temp: 15 },
-        { hour: "9pm",  icon: "🌙", temp: 14 },
-        { hour: "10pm", icon: "🌙", temp: 13 },
-        { hour: "11pm", icon: "🌙", temp: 12 }
-    ]
+    // Sourced live from the weather-sync daemon's snapshot (see
+    // WeatherBridge) — swapped from mock literals, field shapes unchanged.
+    readonly property var hourlyForecast: weatherBridge.hourlyForecast
 
     // Combined series for the chart: real history (solid) immediately
     // followed by the projected hours (dashed, icon-annotated) — one
@@ -212,14 +204,13 @@ Item {
         return history.concat(forecast)
     }
 
-    property var forecast: [
-        { day: "Today", icon: "☀️", hi: "23°", lo: "11°" },
-        { day: "Thu",    icon: "⛅", hi: "21°", lo: "12°" },
-        { day: "Fri",    icon: "🌦️", hi: "18°", lo: "13°" },
-        { day: "Sat",    icon: "🌧️", hi: "16°", lo: "12°" },
-        { day: "Sun",    icon: "⛅", hi: "19°", lo: "10°" },
-        { day: "Mon",    icon: "☀️", hi: "22°", lo: "9°"  },
-        { day: "Tue",    icon: "☀️", hi: "24°", lo: "11°" },
-        { day: "Wed",    icon: "⛅", hi: "22°", lo: "12°" }
-    ]
+    readonly property var forecast: weatherBridge.forecast
+
+    // Current-conditions stats shown alongside the chart — pre-formatted
+    // strings (e.g. "62%", "14 km/h") straight from the BOM observations
+    // snapshot, same treatment as forecast/hourlyForecast above.
+    readonly property var currentConditions: weatherBridge.observations
+    readonly property string humidity: currentConditions.humidity || ""
+    readonly property string windSpeed: currentConditions.windSpeed || ""
+    readonly property string rainToday: currentConditions.rainToday || ""
 }

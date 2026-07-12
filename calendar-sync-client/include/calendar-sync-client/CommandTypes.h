@@ -2,6 +2,7 @@
 
 #include <QJsonObject>
 #include <QString>
+#include <QStringList>
 
 // Intent-named commands the kiosk app sends over the command socket — never
 // CRUD verbs. New actions are added by extending this list plus one new
@@ -50,6 +51,9 @@ struct ScheduleEventPayload
 	QString start;
 	QString end;
 	QString description; // optional; empty means absent
+	// Configured person names (e.g. "Mum"), same boundary as
+	// ParticipantPayload::person below — resolved to email(s) daemon-side.
+	QStringList attendees;
 
 	static ScheduleEventPayload fromJson( const QJsonObject &obj );
 	QJsonObject toJson() const;

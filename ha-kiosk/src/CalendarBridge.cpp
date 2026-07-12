@@ -82,9 +82,10 @@ QString CalendarBridge::defaultCalendarId() const
 
 QString CalendarBridge::scheduleEvent( const QString &calendarId, const QString &summary,
 									   const QString &startIso, const QString &endIso,
-									   const QString &description )
+									   const QString &description, const QStringList &attendees )
 {
-	const QString commandId = m_syncClient.scheduleEvent( calendarId, summary, startIso, endIso, description );
+	const QString commandId =
+		m_syncClient.scheduleEvent( calendarId, summary, startIso, endIso, description, attendees );
 	m_pendingWhat.insert( commandId, QStringLiteral( "Adding \"%1\"" ).arg( summary ) );
 	return commandId;
 }

@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QSet>
 #include <QString>
+#include <QStringList>
 #include <QTimer>
 
 class QJsonObject;
@@ -28,7 +29,8 @@ class CalendarSyncClient : public QObject
 
 	Q_INVOKABLE QString scheduleEvent( const QString &calendarId, const QString &summary,
 									   const QString &startIso, const QString &endIso,
-									   const QString &description = QString() );
+									   const QString &description = QString(),
+									   const QStringList &attendees = QStringList() );
 	Q_INVOKABLE QString rescheduleEvent( const QString &calendarId, const QString &eventId,
 										 const QString &etag, const QString &newStartIso,
 										 const QString &newEndIso );

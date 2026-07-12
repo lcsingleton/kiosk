@@ -37,17 +37,62 @@ Item {
     }
 
     readonly property real paddingX: 6
+    readonly property real paddingLeft: 32  // gutter for y-axis grad labels
     readonly property real paddingTop: 24  // headroom for the forecast icon row
     readonly property real paddingBottom: 6
-    readonly property real plotWidth: width - paddingX * 2
+    readonly property real plotWidth: width - paddingLeft - paddingX
     readonly property real plotHeight: canvas.height - paddingTop - paddingBottom
 
+    readonly property int minorPerMajor: 4  // minor gridlines drawn between each pair of majors
+
+    // "Nice" round number close to range, per the standard Heckbert/Sparks
+    // tick algorithm, so grad labels read as 5/10/25/50 rather than
+    // whatever the raw data span happens to be.
+    function niceNum(range, round) {
+        const exponent = Math.floor(Math.log10(range))
+        const fraction = range / Math.pow(10, exponent)
+        let niceFraction
+        if (round) {
+            if (fraction < 1.5) niceFraction = 1
+            else if (fraction < 3) niceFraction = 2
+            else if (fraction < 7) niceFraction = 5
+            else niceFraction = 10
+        } else {
+            if (fraction <= 1) niceFraction = 1
+            else if (fraction <= 2) niceFraction = 2
+            else if (fraction <= 5) niceFraction = 5
+            else niceFraction = 10
+        }
+        return niceFraction * Math.pow(10, exponent)
+    }
+
+    // Axis domain snapped to nice round ticks (rather than the raw
+    // min/maxValue) so major gridlines land on legible values and the
+    // line gets a little headroom instead of touching the plot edges.
+    readonly property var axisTicks: {
+        const span = maxValue - minValue
+        if (span <= 0) {
+            const step = niceNum(Math.max(Math.abs(maxValue), 1), true) / minorPerMajor || 1
+            return { min: minValue - step, max: maxValue + step, step: step }
+        }
+        const targetMajors = 4
+        const step = niceNum(span / targetMajors, true)
+        return { min: Math.floor(minValue / step) * step, max: Math.ceil(maxValue / step) * step, step: step }
+    }
+    readonly property real axisMin: axisTicks.min
+    readonly property real axisMax: axisTicks.max
+    readonly property real axisStep: axisTicks.step
+
+    function formatTick(v) {
+        return String(Math.round(v * 100) / 100)
+    }
+
     function xAt(i) {
-        return paddingX + i * (plotWidth / Math.max(points.length - 1, 1))
+        return paddingLeft + i * (plotWidth / Math.max(points.length - 1, 1))
     }
     function yAt(v) {
-        const range = Math.max(1, maxValue - minValue)
-        return paddingTop + plotHeight * (1 - (v - minValue) / range)
+        const range = Math.max(axisMax - axisMin, 0.0001)
+        return paddingTop + plotHeight * (1 - (v - axisMin) / range)
     }
 
     onPointsChanged: canvas.requestPaint()
@@ -67,6 +112,69 @@ Item {
 
             const h = height
             const lastHist = chart.lastHistoryIndex
+
+            // y-axis gridlines — minor first so majors draw over them, then
+            // major grad labels along the left gutter
+            const gridLeft = chart.paddingLeft
+            const gridRight = width - chart.paddingX
+            const majorCount = Math.round((chart.axisMax - chart.axisMin) / chart.axisStep)
+            const minorStep = chart.axisStep / chart.minorPerMajor
+            const minorCount = majorCount * chart.minorPerMajor
+
+            ctx.lineWidth = 1
+            ctx.strokeStyle = "rgba(130, 150, 184, 0.12)"
+            ctx.beginPath()
+            for (let i = 0; i <= minorCount; i++) {
+                if (i % chart.minorPerMajor === 0) continue
+                const y = chart.yAt(chart.axisMin + i * minorStep)
+                ctx.moveTo(gridLeft, y)
+                ctx.lineTo(gridRight, y)
+            }
+            ctx.stroke()
+
+            ctx.font = "11px sans-serif"
+            ctx.fillStyle = "#8296b8"
+            ctx.textAlign = "right"
+            ctx.textBaseline = "middle"
+            ctx.strokeStyle = "rgba(130, 150, 184, 0.3)"
+            for (let i = 0; i <= majorCount; i++) {
+                const v = chart.axisMin + i * chart.axisStep
+                const y = chart.yAt(v)
+                ctx.beginPath()
+                ctx.moveTo(gridLeft, y)
+                ctx.lineTo(gridRight, y)
+                ctx.stroke()
+                ctx.fillText(chart.formatTick(v), gridLeft - 6, y)
+            }
+
+            // x-axis gridlines — one major per point (each point is exactly
+            // one BOM hourly sample), minor lines quartering each hour into
+            // 15-minute steps. Hour labels already live in the Row below the
+            // canvas, so these are lines only, no text.
+            const gridTop = chart.paddingTop
+            const gridBottom = h - chart.paddingBottom
+            const xMinorPerMajor = 4
+
+            ctx.lineWidth = 1
+            ctx.strokeStyle = "rgba(130, 150, 184, 0.12)"
+            ctx.beginPath()
+            for (let i = 0; i < chart.points.length - 1; i++) {
+                for (let m = 1; m < xMinorPerMajor; m++) {
+                    const x = chart.xAt(i + m / xMinorPerMajor)
+                    ctx.moveTo(x, gridTop)
+                    ctx.lineTo(x, gridBottom)
+                }
+            }
+            ctx.stroke()
+
+            ctx.strokeStyle = "rgba(130, 150, 184, 0.3)"
+            ctx.beginPath()
+            for (let i = 0; i < chart.points.length; i++) {
+                const x = chart.xAt(i)
+                ctx.moveTo(x, gridTop)
+                ctx.lineTo(x, gridBottom)
+            }
+            ctx.stroke()
 
             // area fill — history only, so it's visually clear the shaded
             // region is measured data, not projection
@@ -146,13 +254,13 @@ Item {
     }
 
     Row {
-        anchors.left: parent.left
-        anchors.right: parent.right
+        x: chart.paddingLeft
+        width: chart.plotWidth
         anchors.bottom: parent.bottom
         Repeater {
             model: chart.points
             delegate: Text {
-                width: chart.width / chart.points.length
+                width: chart.plotWidth / chart.points.length
                 horizontalAlignment: Text.AlignHCenter
                 text: index % chart.labelEvery === 0 ? modelData.label : ""
                 color: "#8296b8"

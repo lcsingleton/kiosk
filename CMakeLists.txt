@@ -17,6 +17,8 @@ include(GNUInstallDirs)
 # serves the other end of that socket), so it lives at the root, alongside
 # its two consumers, rather than nested under either one. Must be added
 # before both.
+add_subdirectory(kiosk-log)
 add_subdirectory(calendar-sync-client)
 add_subdirectory(ha-kiosk-google-calendar-sync)
+add_subdirectory(ha-kiosk-weather-sync)
 add_subdirectory(ha-kiosk)

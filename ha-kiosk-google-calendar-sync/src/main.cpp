@@ -20,6 +20,8 @@
 #include "SnapshotBuilder.h"
 #include "SnapshotWriter.h"
 
+#include <kiosk-log/FileLogger.h>
+
 namespace
 {
 
@@ -126,6 +128,8 @@ void runSyncCycle( CalendarClient *client, const QVector<CalendarConfig> &calend
 
 int main( int argc, char *argv[] )
 {
+	FileLogger::install( "ha-kiosk-google-calendar-sync" );
+
 	QCoreApplication app( argc, argv );
 	QCoreApplication::setApplicationName( "ha-kiosk-google-calendar-sync" );
 

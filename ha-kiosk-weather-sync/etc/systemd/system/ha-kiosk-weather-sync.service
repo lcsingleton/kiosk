@@ -1,0 +1,27 @@
+[Unit]
+Description=BOM weather sync daemon for the kiosk app
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=kiosk
+Group=kiosk
+ExecStart=/opt/kiosk/bin/ha-kiosk-weather-sync --config /etc/kiosk/weather-config.json
+# Shared with ha-kiosk-google-calendar-sync.service (same RuntimeDirectory=
+# kiosk — ha-kiosk the app reads both daemons' snapshots from one
+# well-known dir). Preserve=yes so a restart of *this* unit doesn't blow
+# away the other daemon's snapshot/lock files sitting in the same
+# directory; still starts fresh at actual boot, since /run itself is a new
+# tmpfs then.
+RuntimeDirectory=kiosk
+RuntimeDirectoryPreserve=yes
+RuntimeDirectoryMode=0750
+LogsDirectory=ha-kiosk-weather-sync
+LogsDirectoryMode=0750
+Restart=always
+RestartSec=1
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

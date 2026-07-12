@@ -1,0 +1,46 @@
+#include "Config.h"
+
+#include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QRegularExpression>
+
+bool Config::load( const QString &path, Config &out, QString &error )
+{
+	QFile file( path );
+	if ( !file.open( QIODevice::ReadOnly ) )
+	{
+		error = QStringLiteral( "cannot open config file %1: %2" ).arg( path, file.errorString() );
+		return false;
+	}
+
+	QJsonParseError parseError;
+	const QJsonDocument doc = QJsonDocument::fromJson( file.readAll(), &parseError );
+	if ( parseError.error != QJsonParseError::NoError )
+	{
+		error = QStringLiteral( "invalid JSON in %1: %2" ).arg( path, parseError.errorString() );
+		return false;
+	}
+	const QJsonObject root = doc.object();
+
+	out.geohash = root.value( "geohash" ).toString();
+	out.pollIntervalSeconds = root.value( "pollIntervalSeconds" ).toInt( 600 );
+	out.snapshotPath = root.value( "snapshotPath" ).toString();
+
+	static const QRegularExpression geohashPattern( QStringLiteral( "^[0-9a-z]{6}$" ) );
+	if ( out.geohash.isEmpty() || !geohashPattern.match( out.geohash ).hasMatch() )
+	{
+		error = QStringLiteral( "config %1: \"geohash\" must be a 6-character BOM location geohash "
+								"(resolve one via https://api.weather.bom.gov.au/v1/locations?search=<lat>,<lon> "
+								"and drop the last character — that endpoint returns 7)" )
+					.arg( path );
+		return false;
+	}
+	if ( out.snapshotPath.isEmpty() )
+	{
+		error = QStringLiteral( "config %1: missing \"snapshotPath\"" ).arg( path );
+		return false;
+	}
+
+	return true;
+}

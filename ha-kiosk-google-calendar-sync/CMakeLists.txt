@@ -26,6 +26,7 @@ add_executable(ha-kiosk-google-calendar-sync
 
 target_link_libraries(ha-kiosk-google-calendar-sync PRIVATE
     calendar-sync-client
+    kiosk-log
     Qt6::Core
     Qt6::Network
     OpenSSL::SSL
@@ -33,3 +34,17 @@ target_link_libraries(ha-kiosk-google-calendar-sync PRIVATE
 )
 
 install(TARGETS ha-kiosk-google-calendar-sync RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+# etc/ mirrors its destination path on the tablet (see deploy/README.md), so
+# these install absolute to /etc rather than under CMAKE_INSTALL_PREFIX.
+# `DESTDIR=<stage> cmake --install build` (see docker/build.sh) prepends
+# <stage>, turning this into a full FHS staging tree usable by the emulator
+# container or, later, a `dpkg-buildpackage`-style .deb.
+install(FILES etc/systemd/system/ha-kiosk-google-calendar-sync.service
+    DESTINATION /etc/systemd/system)
+install(FILES etc/tmpfiles.d/kiosk.conf DESTINATION /etc/tmpfiles.d)
+install(FILES etc/logrotate.d/ha-kiosk-google-calendar-sync DESTINATION /etc/logrotate.d)
+# Kept as .example.json (never installed as the live daemon-config.json) —
+# same reasoning as deploy/README.md step 6: real deployments hand-edit a
+# copy, so the packaged/staged file must never clobber it on upgrade.
+install(FILES etc/daemon-config.example.json DESTINATION /etc/kiosk)

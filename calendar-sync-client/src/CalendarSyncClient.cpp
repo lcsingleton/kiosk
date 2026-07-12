@@ -63,9 +63,9 @@ QString CalendarSyncClient::sendCommand( const QString &action, const QString &c
 
 QString CalendarSyncClient::scheduleEvent( const QString &calendarId, const QString &summary,
 										   const QString &startIso, const QString &endIso,
-										   const QString &description )
+										   const QString &description, const QStringList &attendees )
 {
-	const ScheduleEventPayload payload{ summary, startIso, endIso, description };
+	const ScheduleEventPayload payload{ summary, startIso, endIso, description, attendees };
 	return sendCommand( QStringLiteral( "ScheduleEvent" ), calendarId, QString(), QString(),
 					   payload.toJson() );
 }

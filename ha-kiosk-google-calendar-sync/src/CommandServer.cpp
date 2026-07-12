@@ -197,6 +197,20 @@ void CommandServer::handleSchedule( const Command &cmd, std::function<void( Resu
 	if ( !payload.description.isEmpty() )
 		eventBody["description"] = payload.description;
 
+	// Same person-name -> email resolution as queueAttendeeChange, just
+	// with no existing attendees list to merge against — this is the
+	// initial one. Unknown names (a stale/renamed person) are silently
+	// skipped rather than failing the whole create.
+	QJsonArray attendees;
+	for ( const QString &person : payload.attendees )
+	{
+		const auto personIt = m_peopleByName.constFind( person );
+		if ( personIt != m_peopleByName.constEnd() && !personIt->emails.isEmpty() )
+			attendees.append( QJsonObject{ { "email", personIt->emails.first() } } );
+	}
+	if ( !attendees.isEmpty() )
+		eventBody["attendees"] = attendees;
+
 	m_client->insertEvent( cmd.calendarId, eventBody,
 						   [cmd, reply]( QJsonObject, QString code, QString message ) {
 							   reply( code.isEmpty() ? Result::success( cmd.commandId )

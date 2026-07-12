@@ -1,0 +1,8 @@
+/var/log/ha-kiosk-weather-sync/*.log {
+    weekly
+    rotate 4
+    compress
+    missingok
+    notifempty
+    copytruncate
+}
