@@ -7,7 +7,7 @@ DashboardCard {
 
     title: "Shopping List"
     icon: "🛒"
-    accent: "#c98500"
+    accent: Theme.accentAmber
 
     Repeater {
         model: dashboardData.shopping
@@ -18,8 +18,8 @@ DashboardCard {
                 width: 20
                 height: 20
                 radius: 10
-                color: modelData.done ? "#0ca30c" : "transparent"
-                border.color: modelData.done ? "#0ca30c" : "#8296b8"
+                color: modelData.done ? Theme.accentGreen : "transparent"
+                border.color: modelData.done ? Theme.accentGreen : Theme.textSecondary
                 border.width: 2
                 Text {
                     visible: modelData.done
@@ -31,7 +31,7 @@ DashboardCard {
             }
             Text {
                 text: modelData.item
-                color: modelData.done ? "#8296b8" : "#eef2f9"
+                color: modelData.done ? Theme.textSecondary : Theme.textPrimary
                 font.strikeout: modelData.done
                 font.pixelSize: 16
                 Layout.fillWidth: true

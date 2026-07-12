@@ -16,6 +16,7 @@ add_executable(ha-kiosk-weather-sync
     src/main.cpp
     src/Config.cpp
     src/BomClient.cpp
+    src/InfluxClient.cpp
     src/IconMap.cpp
     src/SnapshotBuilder.cpp
     src/SnapshotWriter.cpp

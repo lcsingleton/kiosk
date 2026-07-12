@@ -51,3 +51,13 @@ QVariantMap WeatherBridge::observations() const
 {
 	return m_snapshot.value( QLatin1String( "observations" ) ).toObject().toVariantMap();
 }
+
+QVariantMap WeatherBridge::sun() const
+{
+	return m_snapshot.value( QLatin1String( "sun" ) ).toObject().toVariantMap();
+}
+
+QVariantList WeatherBridge::weatherHistory() const
+{
+	return m_snapshot.value( QLatin1String( "weatherHistory" ) ).toArray().toVariantList();
+}

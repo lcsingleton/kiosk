@@ -27,6 +27,11 @@ bool Config::load( const QString &path, Config &out, QString &error )
 	out.pollIntervalSeconds = root.value( "pollIntervalSeconds" ).toInt( 600 );
 	out.snapshotPath = root.value( "snapshotPath" ).toString();
 
+	out.influxUrl = root.value( "influxUrl" ).toString();
+	out.influxOrg = root.value( "influxOrg" ).toString();
+	out.influxBucket = root.value( "influxBucket" ).toString();
+	out.influxToken = root.value( "influxToken" ).toString();
+
 	static const QRegularExpression geohashPattern( QStringLiteral( "^[0-9a-z]{6}$" ) );
 	if ( out.geohash.isEmpty() || !geohashPattern.match( out.geohash ).hasMatch() )
 	{
@@ -39,6 +44,18 @@ bool Config::load( const QString &path, Config &out, QString &error )
 	if ( out.snapshotPath.isEmpty() )
 	{
 		error = QStringLiteral( "config %1: missing \"snapshotPath\"" ).arg( path );
+		return false;
+	}
+
+	const bool anyInflux =
+		!out.influxUrl.isEmpty() || !out.influxOrg.isEmpty() || !out.influxBucket.isEmpty() || !out.influxToken.isEmpty();
+	const bool allInflux =
+		!out.influxUrl.isEmpty() && !out.influxOrg.isEmpty() && !out.influxBucket.isEmpty() && !out.influxToken.isEmpty();
+	if ( anyInflux && !allInflux )
+	{
+		error = QStringLiteral( "config %1: \"influxUrl\"/\"influxOrg\"/\"influxBucket\"/\"influxToken\" "
+								"must be set together or all left empty" )
+					.arg( path );
 		return false;
 	}
 

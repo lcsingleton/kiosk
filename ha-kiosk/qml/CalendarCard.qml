@@ -13,7 +13,7 @@ DashboardCard {
 
     title: "Calendar"
     icon: "📅"
-    accent: "#3987e5"
+    accent: Theme.accentBlue
     showDivider: false
 
     Item {
@@ -27,7 +27,7 @@ DashboardCard {
             width: parent.width * 0.6 - 10
             spacing: 8
 
-            Text { text: "TODAY"; color: "#5c6f8f"; font.pixelSize: 11; font.bold: true; font.letterSpacing: 1 }
+            Text { text: "TODAY"; color: Theme.textMuted; font.pixelSize: 11; font.bold: true; font.letterSpacing: 1 }
 
             Column {
                 width: parent.width
@@ -38,8 +38,8 @@ DashboardCard {
                         width: parent.width
                         spacing: 8
                         Text { text: modelData.icon; font.pixelSize: 16 }
-                        Text { text: modelData.label; color: "#c7d2e3"; font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WordWrap }
-                        Text { text: modelData.time; color: "#8296b8"; font.pixelSize: 12; visible: !!modelData.time }
+                        Text { text: modelData.label; color: Theme.textTertiary; font.pixelSize: 13; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                        Text { text: modelData.time; color: Theme.textSecondary; font.pixelSize: 12; visible: !!modelData.time }
                         AttendeeBadges {
                             attendees: modelData.attendees || []
                             dashboardData: card.dashboardData
@@ -85,10 +85,10 @@ DashboardCard {
             width: 1
             height: parent.height
             gradient: Gradient {
-                GradientStop { position: 0.0; color: "#003987e5" }
-                GradientStop { position: 0.15; color: "#663987e5" }
-                GradientStop { position: 0.85; color: "#663987e5" }
-                GradientStop { position: 1.0; color: "#003987e5" }
+                GradientStop { position: 0.0; color: Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0) }
+                GradientStop { position: 0.15; color: Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.4) }
+                GradientStop { position: 0.85; color: Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.4) }
+                GradientStop { position: 1.0; color: Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0) }
             }
         }
 
@@ -99,7 +99,7 @@ DashboardCard {
             width: parent.width - todayCol.width - 21
             spacing: 10
 
-            Text { text: "THIS WEEKEND"; color: "#5c6f8f"; font.pixelSize: 11; font.bold: true; font.letterSpacing: 1 }
+            Text { text: "THIS WEEKEND"; color: Theme.textMuted; font.pixelSize: 11; font.bold: true; font.letterSpacing: 1 }
 
             Column {
                 width: parent.width
@@ -110,7 +110,7 @@ DashboardCard {
                         width: parent.width
                         spacing: 4
 
-                        Text { text: modelData.day; color: "#9085e9"; font.pixelSize: 12; font.bold: true }
+                        Text { text: modelData.day; color: Theme.accentPurple; font.pixelSize: 12; font.bold: true }
 
                         Repeater {
                             model: modelData.items
@@ -134,12 +134,12 @@ DashboardCard {
                                     Rectangle { width: 3; height: 24; radius: 2; color: modelData.accent }
                                     Text {
                                         text: modelData.title
-                                        color: "#eef2f9"
+                                        color: Theme.textPrimary
                                         font.pixelSize: 13
                                         wrapMode: Text.WordWrap
                                         Layout.fillWidth: true
                                     }
-                                    Text { text: modelData.time; color: "#8296b8"; font.pixelSize: 11 }
+                                    Text { text: modelData.time; color: Theme.textSecondary; font.pixelSize: 11 }
                                     AttendeeBadges {
                                         size: 16
                                         attendees: modelData.attendees || []
@@ -159,9 +159,9 @@ DashboardCard {
                 }
             }
 
-            FlowDivider { width: parent.width; color: "#9085e9" }
+            FlowDivider { width: parent.width; color: Theme.accentPurple }
 
-            Text { text: "UPCOMING"; color: "#5c6f8f"; font.pixelSize: 11; font.bold: true; font.letterSpacing: 1 }
+            Text { text: "UPCOMING"; color: Theme.textMuted; font.pixelSize: 11; font.bold: true; font.letterSpacing: 1 }
 
             Column {
                 width: parent.width
@@ -188,14 +188,14 @@ DashboardCard {
                                     anchors.centerIn: parent
                                     spacing: 0
                                     Text { text: modelData.month; color: modelData.accent; font.pixelSize: 9; font.bold: true; anchors.horizontalCenter: parent.horizontalCenter }
-                                    Text { text: modelData.day; color: "#eef2f9"; font.pixelSize: 14; font.bold: true; anchors.horizontalCenter: parent.horizontalCenter }
+                                    Text { text: modelData.day; color: Theme.textPrimary; font.pixelSize: 14; font.bold: true; anchors.horizontalCenter: parent.horizontalCenter }
                                 }
                             }
                             Column {
                                 Layout.fillWidth: true
                                 spacing: 0
-                                Text { text: modelData.title; color: "#eef2f9"; font.pixelSize: 13; wrapMode: Text.WordWrap; width: parent.width }
-                                Text { text: modelData.time; color: "#8296b8"; font.pixelSize: 11; visible: !!modelData.time }
+                                Text { text: modelData.title; color: Theme.textPrimary; font.pixelSize: 13; wrapMode: Text.WordWrap; width: parent.width }
+                                Text { text: modelData.time; color: Theme.textSecondary; font.pixelSize: 11; visible: !!modelData.time }
                             }
                             AttendeeBadges {
                                 size: 16

@@ -5,7 +5,7 @@ import QtQuick
 // rounded-rect boundary. Canvas-drawn (no extra Qt module) radial gradient.
 Item {
     id: glow
-    property color color: "#3987e5"
+    property color color: Theme.accentBlue
     property real intensity: 0.75
     implicitWidth: 44
     implicitHeight: 44

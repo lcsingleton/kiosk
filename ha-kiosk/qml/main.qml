@@ -9,7 +9,7 @@ Window {
     visible: true
     width: 960
     height: 540
-    color: "#05070c"
+    color: Theme.background
     title: "ha-tab kiosk (dev preview — resize me)"
 
     DashboardData { id: data }
@@ -92,8 +92,8 @@ Window {
         Rectangle {
             anchors.fill: parent
             gradient: Gradient {
-                GradientStop { position: 0.0; color: "#070b14" }
-                GradientStop { position: 1.0; color: "#0e1729" }
+                GradientStop { position: 0.0; color: Theme.canvasGradientTop }
+                GradientStop { position: 1.0; color: Theme.canvasGradientBottom }
             }
         }
 
@@ -108,7 +108,7 @@ Window {
                 anchors.left: parent.left
                 anchors.leftMargin: 24
                 anchors.verticalCenter: parent.verticalCenter
-                color: "#eef2f9"
+                color: Theme.textPrimary
                 font.pixelSize: 28
                 font.bold: true
             }
@@ -117,7 +117,7 @@ Window {
                 anchors.left: clock.right
                 anchors.leftMargin: 14
                 anchors.verticalCenter: parent.verticalCenter
-                color: "#8296b8"
+                color: Theme.textSecondary
                 font.pixelSize: 16
             }
             Text {
@@ -125,7 +125,7 @@ Window {
                 anchors.rightMargin: 24
                 anchors.verticalCenter: parent.verticalCenter
                 text: "⚙"
-                color: "#8296b8"
+                color: Theme.textSecondary
                 font.pixelSize: 22
             }
 

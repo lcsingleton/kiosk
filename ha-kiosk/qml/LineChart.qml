@@ -6,12 +6,17 @@ import QtQuick
 // projection (no fill, hollow dots) with an icon glyph above each one, and
 // a faint vertical rule marks the history/forecast boundary — one
 // continuous timeline instead of stitching a separate forecast strip on.
+//
+// Label/gridline placement is driven entirely by each point's own `label`
+// string (non-empty = "put a major gridline + label here"), not by point
+// index — the underlying point density can differ between history (now
+// sub-hourly, see SnapshotBuilder) and forecast (hourly) without either
+// crowding the x-axis or losing calendar alignment.
 Item {
     id: chart
     property var points: []           // [{ label, value, icon (optional), forecast (optional bool) }]
-    property color lineColor: "#199e70"
-    property color forecastColor: "#4d6f96"
-    property int labelEvery: 1         // show every Nth label, to avoid crowding
+    property color lineColor: Theme.accentTeal
+    property color forecastColor: Theme.forecastMuted
 
     implicitHeight: 160
 
@@ -98,6 +103,14 @@ Item {
     onPointsChanged: canvas.requestPaint()
     onWidthChanged: canvas.requestPaint()
 
+    // Grid/label colors below read Theme directly rather than through a
+    // property, so a day/night flip needs an explicit repaint nudge — same
+    // reasoning as Glow.qml/FlowDivider.qml's onColorChanged connections.
+    Connections {
+        target: Theme
+        function onIsDayChanged() { canvas.requestPaint() }
+    }
+
     Canvas {
         id: canvas
         anchors.top: parent.top
@@ -122,7 +135,7 @@ Item {
             const minorCount = majorCount * chart.minorPerMajor
 
             ctx.lineWidth = 1
-            ctx.strokeStyle = "rgba(130, 150, 184, 0.12)"
+            ctx.strokeStyle = Qt.rgba(Theme.textSecondary.r, Theme.textSecondary.g, Theme.textSecondary.b, 0.12)
             ctx.beginPath()
             for (let i = 0; i <= minorCount; i++) {
                 if (i % chart.minorPerMajor === 0) continue
@@ -133,10 +146,10 @@ Item {
             ctx.stroke()
 
             ctx.font = "11px sans-serif"
-            ctx.fillStyle = "#8296b8"
+            ctx.fillStyle = Theme.textSecondary
             ctx.textAlign = "right"
             ctx.textBaseline = "middle"
-            ctx.strokeStyle = "rgba(130, 150, 184, 0.3)"
+            ctx.strokeStyle = Qt.rgba(Theme.textSecondary.r, Theme.textSecondary.g, Theme.textSecondary.b, 0.3)
             for (let i = 0; i <= majorCount; i++) {
                 const v = chart.axisMin + i * chart.axisStep
                 const y = chart.yAt(v)
@@ -147,29 +160,20 @@ Item {
                 ctx.fillText(chart.formatTick(v), gridLeft - 6, y)
             }
 
-            // x-axis gridlines — one major per point (each point is exactly
-            // one BOM hourly sample), minor lines quartering each hour into
-            // 15-minute steps. Hour labels already live in the Row below the
-            // canvas, so these are lines only, no text.
+            // x-axis gridlines — one per labeled point (see the class
+            // comment above): wherever a point's `label` is non-empty, not
+            // one per point, so this stays legible regardless of how many
+            // (possibly sub-hourly) points sit between labels. Hour labels
+            // already live in the Row below the canvas, so these are lines
+            // only, no text.
             const gridTop = chart.paddingTop
             const gridBottom = h - chart.paddingBottom
-            const xMinorPerMajor = 4
 
             ctx.lineWidth = 1
-            ctx.strokeStyle = "rgba(130, 150, 184, 0.12)"
-            ctx.beginPath()
-            for (let i = 0; i < chart.points.length - 1; i++) {
-                for (let m = 1; m < xMinorPerMajor; m++) {
-                    const x = chart.xAt(i + m / xMinorPerMajor)
-                    ctx.moveTo(x, gridTop)
-                    ctx.lineTo(x, gridBottom)
-                }
-            }
-            ctx.stroke()
-
-            ctx.strokeStyle = "rgba(130, 150, 184, 0.3)"
+            ctx.strokeStyle = Qt.rgba(Theme.textSecondary.r, Theme.textSecondary.g, Theme.textSecondary.b, 0.3)
             ctx.beginPath()
             for (let i = 0; i < chart.points.length; i++) {
+                if (!chart.points[i].label) continue
                 const x = chart.xAt(i)
                 ctx.moveTo(x, gridTop)
                 ctx.lineTo(x, gridBottom)
@@ -238,7 +242,7 @@ Item {
         y: 0
         width: 1
         height: canvas.height
-        color: "#2c3f5c"
+        color: Theme.divider
     }
 
     // forecast condition icons, one above each projected point
@@ -262,8 +266,8 @@ Item {
             delegate: Text {
                 width: chart.plotWidth / chart.points.length
                 horizontalAlignment: Text.AlignHCenter
-                text: index % chart.labelEvery === 0 ? modelData.label : ""
-                color: "#8296b8"
+                text: modelData.label || ""
+                color: Theme.textSecondary
                 font.pixelSize: 11
             }
         }

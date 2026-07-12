@@ -27,8 +27,8 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: "#3d1414"
-        border.color: "#e5484d"
+        color: Theme.errorBackground
+        border.color: Theme.errorBorder
         border.width: 1
         radius: 10
         opacity: 0.95
@@ -43,17 +43,17 @@ Item {
         anchors.rightMargin: 14
         spacing: 10
 
-        Text { text: "⚠"; color: "#ff6b6f"; font.pixelSize: 16 }
+        Text { text: "⚠"; color: Theme.errorIcon; font.pixelSize: 16 }
         Text {
             Layout.fillWidth: true
             text: banner.message
-            color: "#f5d0d1"
+            color: Theme.errorText
             font.pixelSize: 13
             wrapMode: Text.WordWrap
         }
         Text {
             text: "✕"
-            color: "#f5d0d1"
+            color: Theme.errorText
             font.pixelSize: 16
             font.bold: true
             MouseArea { anchors.fill: parent; anchors.margins: -10; onClicked: banner.hide() }

@@ -196,26 +196,52 @@ void CommandServer::handleSchedule( const Command &cmd, std::function<void( Resu
 	eventBody["end"] = QJsonObject{ { "dateTime", payload.end } };
 	if ( !payload.description.isEmpty() )
 		eventBody["description"] = payload.description;
+	// Deliberately no "attendees" here — see the insertEvent callback below.
 
-	// Same person-name -> email resolution as queueAttendeeChange, just
-	// with no existing attendees list to merge against — this is the
-	// initial one. Unknown names (a stale/renamed person) are silently
-	// skipped rather than failing the whole create.
-	QJsonArray attendees;
-	for ( const QString &person : payload.attendees )
-	{
-		const auto personIt = m_peopleByName.constFind( person );
-		if ( personIt != m_peopleByName.constEnd() && !personIt->emails.isEmpty() )
-			attendees.append( QJsonObject{ { "email", personIt->emails.first() } } );
-	}
-	if ( !attendees.isEmpty() )
-		eventBody["attendees"] = attendees;
+	const QStringList attendeeNames = payload.attendees;
+	m_client->insertEvent(
+		cmd.calendarId, eventBody,
+		[this, cmd, reply, attendeeNames]( QJsonObject event, QString code, QString message ) {
+			if ( !code.isEmpty() )
+			{
+				reply( Result::failure( cmd.commandId, code, message ) );
+				return;
+			}
+			reply( Result::success( cmd.commandId ) );
 
-	m_client->insertEvent( cmd.calendarId, eventBody,
-						   [cmd, reply]( QJsonObject, QString code, QString message ) {
-							   reply( code.isEmpty() ? Result::success( cmd.commandId )
-													 : Result::failure( cmd.commandId, code, message ) );
-						   } );
+			// Attendees go on as a follow-up PATCH, never the insertEvent
+			// body itself: unlike patchEvent, insertEvent has no
+			// delegation_required -> DelegatedAuth fallback (see
+			// CalendarClient.h), so a service account without domain-wide
+			// delegation would fail the *entire create* the moment
+			// attendees[] was in the initial body. Routing it through
+			// patchEvent instead reuses that fallback — same as
+			// InviteParticipant — and, deliberately, doesn't gate this
+			// ScheduleEvent's own success reply on it: the delegated-auth
+			// fallback can mean a human needs to complete an out-of-band
+			// device-code grant, which can take minutes.
+			if ( attendeeNames.isEmpty() )
+				return;
+			QJsonArray attendees;
+			for ( const QString &person : attendeeNames )
+			{
+				const auto personIt = m_peopleByName.constFind( person );
+				if ( personIt != m_peopleByName.constEnd() && !personIt->emails.isEmpty() )
+					attendees.append( QJsonObject{ { "email", personIt->emails.first() } } );
+			}
+			if ( attendees.isEmpty() )
+				return;
+
+			QJsonObject patchBody;
+			patchBody["attendees"] = attendees;
+			m_client->patchEvent( cmd.calendarId, event.value( "id" ).toString(),
+								  event.value( "etag" ).toString(), patchBody,
+								  []( QJsonObject, QString patchCode, QString patchMessage ) {
+									  if ( !patchCode.isEmpty() )
+										  qWarning().noquote() << "failed to add attendees to new event:"
+															   << patchMessage;
+								  } );
+		} );
 }
 
 void CommandServer::handleReschedule( const Command &cmd, std::function<void( Result )> reply )

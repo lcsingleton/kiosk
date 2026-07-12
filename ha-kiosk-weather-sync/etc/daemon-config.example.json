@@ -2,5 +2,10 @@
   "_comment_geohash": "6-character BOM location geohash. Resolve one with: curl \"https://api.weather.bom.gov.au/v1/locations?search=<lat>,<lon>\" — that returns a 7-character geohash (e.g. \"r3gx2f7\" for Sydney); drop the last character before putting it here (\"r3gx2f\").",
   "geohash": "r3gx2f",
   "pollIntervalSeconds": 600,
-  "snapshotPath": "/run/kiosk/weather-snapshot.json"
+  "snapshotPath": "/run/kiosk/weather-snapshot.json",
+  "_comment_influx": "Optional: InfluxDB 2.x connection for a local Telegraf-collected temperature history (see WeatherBridge.weatherHistory / InfluxClient). Leave all four empty or omitted to disable — the daemon runs fine without it, the chart just has no history segment.",
+  "influxUrl": "",
+  "influxOrg": "",
+  "influxBucket": "",
+  "influxToken": ""
 }

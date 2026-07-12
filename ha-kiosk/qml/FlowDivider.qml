@@ -5,7 +5,7 @@ import QtQuick
 // being sealed shut by a boundary.
 Item {
     id: div
-    property color color: "#3987e5"
+    property color color: Theme.accentBlue
     property real peakOpacity: 0.4
     implicitHeight: 2
 

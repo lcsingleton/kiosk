@@ -8,12 +8,11 @@ DashboardCard {
 
     title: "Weather · Ecowitt WH65LP"
     icon: "🌡️"
-    accent: "#199e70"
+    accent: Theme.accentTeal
 
     LineChart {
         width: parent.width
-        lineColor: "#199e70"
-        labelEvery: 3
+        lineColor: Theme.accentTeal
         points: dashboardData.weatherSeries()
     }
 
@@ -22,22 +21,22 @@ DashboardCard {
         spacing: 26
         ColumnLayout {
             spacing: 1
-            Text { text: "Humidity"; color: "#8296b8"; font.pixelSize: 12 }
-            Text { text: dashboardData.humidity; color: "#eef2f9"; font.pixelSize: 17; font.bold: true }
+            Text { text: "Humidity"; color: Theme.textSecondary; font.pixelSize: 12 }
+            Text { text: dashboardData.humidity; color: Theme.textPrimary; font.pixelSize: 17; font.bold: true }
         }
         ColumnLayout {
             spacing: 1
-            Text { text: "Wind"; color: "#8296b8"; font.pixelSize: 12 }
-            Text { text: dashboardData.windSpeed; color: "#eef2f9"; font.pixelSize: 17; font.bold: true }
+            Text { text: "Wind"; color: Theme.textSecondary; font.pixelSize: 12 }
+            Text { text: dashboardData.windSpeed; color: Theme.textPrimary; font.pixelSize: 17; font.bold: true }
         }
         ColumnLayout {
             spacing: 1
-            Text { text: "Rain today"; color: "#8296b8"; font.pixelSize: 12 }
-            Text { text: dashboardData.rainToday; color: "#eef2f9"; font.pixelSize: 17; font.bold: true }
+            Text { text: "Rain today"; color: Theme.textSecondary; font.pixelSize: 12 }
+            Text { text: dashboardData.rainToday; color: Theme.textPrimary; font.pixelSize: 17; font.bold: true }
         }
     }
 
-    FlowDivider { width: parent.width; color: "#199e70" }
+    FlowDivider { width: parent.width; color: Theme.accentTeal }
 
     Flow {
         width: parent.width
@@ -47,10 +46,10 @@ DashboardCard {
             delegate: Column {
                 spacing: 1
                 width: 58
-                Text { text: modelData.day; color: "#8296b8"; font.pixelSize: 11; anchors.horizontalCenter: parent.horizontalCenter }
+                Text { text: modelData.day; color: Theme.textSecondary; font.pixelSize: 11; anchors.horizontalCenter: parent.horizontalCenter }
                 Text { text: modelData.icon; font.pixelSize: 18; anchors.horizontalCenter: parent.horizontalCenter }
-                Text { text: modelData.hi; color: "#eef2f9"; font.pixelSize: 13; font.bold: true; anchors.horizontalCenter: parent.horizontalCenter }
-                Text { text: modelData.lo; color: "#8296b8"; font.pixelSize: 11; anchors.horizontalCenter: parent.horizontalCenter }
+                Text { text: modelData.hi; color: Theme.textPrimary; font.pixelSize: 13; font.bold: true; anchors.horizontalCenter: parent.horizontalCenter }
+                Text { text: modelData.lo; color: Theme.textSecondary; font.pixelSize: 11; anchors.horizontalCenter: parent.horizontalCenter }
             }
         }
     }

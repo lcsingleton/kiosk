@@ -49,8 +49,8 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: "#122b3d"
-        border.color: "#4dabf7"
+        color: Theme.infoBackground
+        border.color: Theme.infoBorder
         border.width: 1
         radius: 10
         opacity: 0.97
@@ -67,7 +67,7 @@ Item {
         anchors.bottomMargin: 12
         spacing: 14
 
-        Text { text: "🔑"; color: "#8ecdf7"; font.pixelSize: 20 }
+        Text { text: "🔑"; color: Theme.infoText; font.pixelSize: 20 }
 
         ColumnLayout {
             Layout.fillWidth: true
@@ -75,7 +75,7 @@ Item {
 
             Text {
                 text: "Calendar needs one-time authorization to send invites"
-                color: "#d6ecfc"
+                color: Theme.infoText
                 font.pixelSize: 13
                 font.bold: true
                 wrapMode: Text.WordWrap
@@ -83,14 +83,14 @@ Item {
             }
             Text {
                 text: "Visit " + banner.verificationUrl + " and enter code:"
-                color: "#a9d3f0"
+                color: Theme.infoTextMuted
                 font.pixelSize: 12
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }
             Text {
                 text: banner.userCode
-                color: "#ffffff"
+                color: Theme.textPrimary
                 font.pixelSize: 20
                 font.bold: true
                 font.family: "monospace"
@@ -98,14 +98,14 @@ Item {
             }
             Text {
                 text: "expires in " + banner.formattedRemaining()
-                color: "#7fa8c9"
+                color: Theme.infoTextFaint
                 font.pixelSize: 11
             }
         }
 
         Text {
             text: "✕"
-            color: "#d6ecfc"
+            color: Theme.infoText
             font.pixelSize: 16
             font.bold: true
             MouseArea { anchors.fill: parent; anchors.margins: -10; onClicked: banner.hide() }

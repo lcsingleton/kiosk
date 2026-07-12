@@ -226,7 +226,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     Text { anchors.centerIn: parent; text: modelData.name.charAt(0); font.pixelSize: 10; font.bold: true; color: "#0a1220" }
                 }
-                Text { text: modelData.name; color: "#c7d2e3"; font.pixelSize: 11; font.bold: true; anchors.verticalCenter: parent.verticalCenter }
+                Text { text: modelData.name; color: Theme.textTertiary; font.pixelSize: 11; font.bold: true; anchors.verticalCenter: parent.verticalCenter }
             }
         }
     }
@@ -289,13 +289,13 @@ Item {
                 height: 16
                 Text {
                     text: Qt.formatTime(new Date(2000, 0, 1, hour, 0), "h AP")
-                    color: "#5c6f8f"
+                    color: Theme.textMuted
                     font.pixelSize: 11
                     width: grid.gutterWidth - 10
                     horizontalAlignment: Text.AlignRight
                     anchors.verticalCenter: parent.verticalCenter
                 }
-                Rectangle { x: grid.gutterWidth; width: parent.width - grid.gutterWidth; height: 1; color: "#1c2c48"; anchors.verticalCenter: parent.verticalCenter }
+                Rectangle { x: grid.gutterWidth; width: parent.width - grid.gutterWidth; height: 1; color: Theme.divider; anchors.verticalCenter: parent.verticalCenter }
             }
         }
 
@@ -307,7 +307,7 @@ Item {
                 x: grid.gutterWidth + (index + 1) * grid.colWidth
                 width: 1
                 height: body.height
-                color: "#1c2c48"
+                color: Theme.divider
             }
         }
 
@@ -375,7 +375,7 @@ Item {
                     anchors.leftMargin: 8
                     anchors.rightMargin: 4
                     text: layout.compressed ? (grid.formatHour(modelData.start) + " " + modelData.event) : modelData.event
-                    color: "#eef2f9"
+                    color: Theme.textPrimary
                     font.pixelSize: layout.compressed ? 9 : 10
                     font.bold: true
                     elide: Text.ElideRight
@@ -408,7 +408,7 @@ Item {
             Behavior on y { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
             width: body.width - grid.gutterWidth
             height: 2
-            color: "#e5484d"
+            color: Theme.errorBorder
             Rectangle {
                 width: 10; height: 10; radius: 5
                 color: "#00000055"
@@ -418,7 +418,7 @@ Item {
             Rectangle {
                 id: pin
                 width: 7; height: 7; radius: 3.5
-                color: "#ff6b6f"
+                color: Theme.errorIcon
                 border.width: 1
                 border.color: "#ffb3b5"
                 anchors.verticalCenter: parent.verticalCenter
@@ -427,7 +427,7 @@ Item {
         }
 
         // thin accent marking the window's edges — where the axis changes speed
-        Rectangle { x: grid.gutterWidth; y: grid.windowTopY; width: parent.width - grid.gutterWidth; height: 1; color: "#3987e5"; opacity: 0.5 }
-        Rectangle { x: grid.gutterWidth; y: grid.windowBottomY; width: parent.width - grid.gutterWidth; height: 1; color: "#3987e5"; opacity: 0.5 }
+        Rectangle { x: grid.gutterWidth; y: grid.windowTopY; width: parent.width - grid.gutterWidth; height: 1; color: Theme.accentBlue; opacity: 0.5 }
+        Rectangle { x: grid.gutterWidth; y: grid.windowBottomY; width: parent.width - grid.gutterWidth; height: 1; color: Theme.accentBlue; opacity: 0.5 }
     }
 }

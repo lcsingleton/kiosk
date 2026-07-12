@@ -19,7 +19,11 @@ target_link_libraries(ha-kiosk PRIVATE calendar-sync-client kiosk-log Qt6::Core 
 # text, images/fonts), so both belong under share/ per the FHS, not next to
 # the binary. main.cpp resolves both at runtime via a fixed bin/../share
 # offset, so mirror that layout in the build tree too, as siblings of bin/.
+# qmldir has no extension so the *.qml glob above misses it — it's what
+# registers Theme.qml as a singleton (see qml/qmldir) and must ship
+# alongside the .qml files themselves.
 file(GLOB QML_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/qml/*.qml")
+list(APPEND QML_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/qml/qmldir")
 
 add_custom_command(TARGET ha-kiosk POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory

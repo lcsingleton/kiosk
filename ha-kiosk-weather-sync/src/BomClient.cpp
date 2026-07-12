@@ -45,9 +45,3 @@ void BomClient::fetchHourly( const QString &geohash, std::function<void( QJsonVa
 {
 	getData( geohash + "/forecasts/hourly", callback );
 }
-
-void BomClient::fetchObservations( const QString &geohash,
-									std::function<void( QJsonValue, QString )> callback )
-{
-	getData( geohash + "/observations", callback );
-}

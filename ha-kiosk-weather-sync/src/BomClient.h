@@ -30,14 +30,8 @@ class BomClient : public QObject
 	void fetchHourly( const QString &geohash,
 					  std::function<void( QJsonValue hours, QString error )> callback );
 
-	// GET /locations/{geohash}/observations — current conditions at the
-	// nearest station (temp/humidity/wind/rain_since_9am). On failure,
-	// observation is null and error is set.
-	void fetchObservations( const QString &geohash,
-							std::function<void( QJsonValue observation, QString error )> callback );
-
   private:
-	// Shared GET + "data" field unwrap for all three endpoints above — BOM
+	// Shared GET + "data" field unwrap for both endpoints above — BOM
 	// wraps every response as {"metadata": {...}, "data": ...}.
 	void getData( const QString &path, std::function<void( QJsonValue data, QString error )> callback );
 

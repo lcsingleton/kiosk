@@ -168,25 +168,15 @@ Item {
         { item: "Dog food", done: true }
     ]
 
-    // Last 24h, one point/hour, ending at "now" (2pm in this mock) so it
-    // butts directly against hourlyForecast below with no gap or overlap.
-    // The Ecowitt WH65LP + HA logs at 1-10 min resolution, but plotting raw
-    // minute-level noise on a glance-chart this size is unreadable — rolled
-    // up to hourly for display.
-    property var weatherHistory: [
-        { hour: "3pm",  temp: 22.9 }, { hour: "4pm", temp: 22.0 },
-        { hour: "5pm",  temp: 20.4 }, { hour: "6pm", temp: 18.7 },
-        { hour: "7pm",  temp: 17.2 }, { hour: "8pm", temp: 15.9 },
-        { hour: "9pm",  temp: 14.9 }, { hour: "10pm", temp: 13.8 },
-        { hour: "11pm", temp: 13.1 }, { hour: "12am", temp: 12.4 },
-        { hour: "1am",  temp: 12.0 }, { hour: "2am", temp: 11.6 },
-        { hour: "3am",  temp: 11.2 }, { hour: "4am", temp: 10.9 },
-        { hour: "5am",  temp: 10.8 }, { hour: "6am", temp: 11.2 },
-        { hour: "7am",  temp: 12.6 }, { hour: "8am", temp: 14.8 },
-        { hour: "9am",  temp: 16.9 }, { hour: "10am", temp: 18.3 },
-        { hour: "11am", temp: 20.1 }, { hour: "12pm", temp: 21.5 },
-        { hour: "1pm",  temp: 22.6 }, { hour: "2pm", temp: 23.1 }
-    ]
+    // Last 24h, one point/hour, ending at "now" so it butts directly
+    // against hourlyForecast below with no gap or overlap. The Ecowitt
+    // WH65LP is logged via Telegraf into a local InfluxDB at ~15s
+    // resolution, but plotting raw noise on a glance-chart this size is
+    // unreadable — rolled up to hourly by the weather-sync daemon (see
+    // InfluxClient/SnapshotBuilder) before it ever reaches here. Sourced
+    // live from the daemon's snapshot (see WeatherBridge), same
+    // "swap the source, keep the fields" treatment as hourlyForecast below.
+    readonly property var weatherHistory: weatherBridge.weatherHistory
 
     // Remainder of today, hour by hour, continuing on from weatherHistory's
     // last point ("now") — the two are plotted as one continuous line on
@@ -207,8 +197,9 @@ Item {
     readonly property var forecast: weatherBridge.forecast
 
     // Current-conditions stats shown alongside the chart — pre-formatted
-    // strings (e.g. "62%", "14 km/h") straight from the BOM observations
-    // snapshot, same treatment as forecast/hourlyForecast above.
+    // strings (e.g. "62%", "14 km/h") straight from the Ecowitt station's
+    // own latest reading (via Telegraf/InfluxDB, see InfluxClient), same
+    // treatment as forecast/hourlyForecast above.
     readonly property var currentConditions: weatherBridge.observations
     readonly property string humidity: currentConditions.humidity || ""
     readonly property string windSpeed: currentConditions.windSpeed || ""

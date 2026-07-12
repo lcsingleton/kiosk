@@ -19,6 +19,8 @@ class WeatherBridge : public QObject
 	Q_PROPERTY( QVariantList hourlyForecast READ hourlyForecast NOTIFY snapshotChanged )
 	Q_PROPERTY( QVariantList forecast READ forecast NOTIFY snapshotChanged )
 	Q_PROPERTY( QVariantMap observations READ observations NOTIFY snapshotChanged )
+	Q_PROPERTY( QVariantMap sun READ sun NOTIFY snapshotChanged )
+	Q_PROPERTY( QVariantList weatherHistory READ weatherHistory NOTIFY snapshotChanged )
 
   public:
 	explicit WeatherBridge( const QString &snapshotPath, QObject *parent = nullptr );
@@ -26,6 +28,8 @@ class WeatherBridge : public QObject
 	QVariantList hourlyForecast() const;
 	QVariantList forecast() const;
 	QVariantMap observations() const;
+	QVariantMap sun() const;
+	QVariantList weatherHistory() const;
 
   signals:
 	void snapshotChanged();

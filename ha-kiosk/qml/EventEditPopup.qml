@@ -39,9 +39,9 @@ Popup {
     property var dashboardData: null
 
     background: Rectangle {
-        color: "#101a2e"
+        color: Theme.surface
         radius: 14
-        border.color: "#2a3c5c"
+        border.color: Theme.border
         border.width: 1
     }
 
@@ -77,7 +77,7 @@ Popup {
 
         Text {
             text: popup.isNew ? "New event" : "Edit event"
-            color: "#eef2f9"
+            color: Theme.textPrimary
             font.pixelSize: 16
             font.bold: true
         }
@@ -119,13 +119,13 @@ Popup {
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
-            Text { text: "Start"; color: "#8296b8"; font.pixelSize: 13 }
+            Text { text: "Start"; color: Theme.textSecondary; font.pixelSize: 13 }
             TextField {
                 id: startField
                 Layout.preferredWidth: 90
                 placeholderText: "HH:mm"
             }
-            Text { text: "Duration (min)"; color: "#8296b8"; font.pixelSize: 13 }
+            Text { text: "Duration (min)"; color: Theme.textSecondary; font.pixelSize: 13 }
             TextField {
                 id: durationField
                 Layout.preferredWidth: 70
@@ -156,7 +156,7 @@ Popup {
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
-            Text { text: "Attendees"; color: "#8296b8"; font.pixelSize: 13 }
+            Text { text: "Attendees"; color: Theme.textSecondary; font.pixelSize: 13 }
             AttendeeBadges {
                 // Create mode has no event yet to invite/uninvite against —
                 // badges are built from every configured person instead,

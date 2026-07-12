@@ -9,7 +9,7 @@ Item {
     id: card
     property string title: ""
     property string icon: "●"
-    property color accent: "#3987e5"
+    property color accent: Theme.accentBlue
     property int contentSpacing: 10
     property bool showDivider: true
     default property alias content: body.children
@@ -33,7 +33,7 @@ Item {
                 text: card.title
                 font.pixelSize: 18
                 font.bold: true
-                color: "#eef2f9"
+                color: Theme.textPrimary
                 anchors.verticalCenter: parent.verticalCenter
             }
         }
