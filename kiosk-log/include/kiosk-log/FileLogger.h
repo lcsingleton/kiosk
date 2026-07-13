@@ -1,5 +1,11 @@
 #pragma once
 
+/// @file
+/// kiosk-log: a tiny shared library each of ha-kiosk,
+/// ha-kiosk-google-calendar-sync, and ha-kiosk-weather-sync links against to
+/// install consistent process-wide logging at startup — see
+/// FileLogger::install().
+
 #include <QString>
 
 /// Installs a process-wide Qt message handler that formats every

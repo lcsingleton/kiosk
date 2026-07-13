@@ -38,7 +38,16 @@ constexpr auto AuthorizationPending = "AuthorizationPending";
 } // namespace CommandEvent
 
 /// One line of NDJSON from the kiosk app:
-/// {"commandId":"...","action":"RescheduleEvent","calendarId":"...","eventId":"...","etag":"...","payload":{...}}
+/// @code{.json}
+/// {
+///   "commandId": "c1",
+///   "action": "RescheduleEvent",
+///   "calendarId": "primary",
+///   "eventId": "abc123",
+///   "etag": "\"33t9\"",
+///   "payload": { "newStart": "2024-06-14T14:00:00+10:00", "newEnd": "2024-06-14T15:00:00+10:00" }
+/// }
+/// @endcode
 /// calendarId/eventId/etag are empty for ScheduleEvent (there's no existing
 /// event yet); everything else populates them. payload's shape depends on
 /// action — decode it with the matching *Payload struct below rather than

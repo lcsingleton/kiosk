@@ -1,5 +1,14 @@
 #pragma once
 
+/// @file
+/// ha-kiosk-google-calendar-sync: the calendar-sync daemon. Polls Google
+/// Calendar (CalendarClient below) and normalizes events into the
+/// dashboard's JSON snapshot (SnapshotBuilder), and serves the kiosk app's
+/// intent commands over a Unix domain socket (CommandServer). Falls back to
+/// a delegated-user OAuth device flow (DelegatedAuth) for inviting
+/// attendees a bare service account can't (Google's domain-wide-delegation
+/// wall).
+
 #include <QObject>
 #include <QDateTime>
 #include <QJsonArray>

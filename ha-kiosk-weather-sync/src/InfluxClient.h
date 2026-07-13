@@ -29,20 +29,25 @@ class InfluxClient : public QObject
 	/// (imperial/Fahrenheit, per the ecowitt2mqtt bridge's configured unit
 	/// system), averaged into one bucket per `windowMinutes` via Flux's
 	/// aggregateWindow — the raw feed is roughly one sample every 15s, far
-	/// finer than even this bucketing keeps. Result is an array of
-	/// { "time": \<RFC3339 UTC\>, "fahrenheit": \<double\> }, oldest first. On
-	/// failure, the array is empty and error is set.
+	/// finer than even this bucketing keeps.
+	/// @return Oldest-first array of:
+	/// @code{.json}
+	/// { "time": "2024-06-14T20:31:00Z", "fahrenheit": 68.4 }
+	/// @endcode
+	/// On failure, the array is empty and error is set.
 	void fetchTemperatureHistory( int hours, int windowMinutes, std::function<void( QJsonValue rows, QString error )> callback );
 
 	/// Queries the most recent humidity/windspeed/dailyrain readings (each
 	/// still in the ecowitt2mqtt bridge's imperial units — %, mph, inches).
 	/// This is the local station's own current conditions, replacing BOM's
 	/// nearest-station observations for the humidity/wind/rain stats shown
-	/// on WeatherCard (whose title already names this station). Result is a
-	/// flat object of field name -> latest value, e.g.
-	/// { "humidity": 90, "windspeed": 8.5, "dailyrain": 0.02 }; any field
-	/// with no recent reading is simply absent. On failure, the object is
-	/// empty and error is set.
+	/// on WeatherCard (whose title already names this station).
+	/// @return A flat object of field name -> latest value; any field with
+	/// no recent reading is simply absent:
+	/// @code{.json}
+	/// { "humidity": 90, "windspeed": 8.5, "dailyrain": 0.02 }
+	/// @endcode
+	/// On failure, the object is empty and error is set.
 	void fetchCurrentConditions( std::function<void( QJsonValue conditions, QString error )> callback );
 
   private:

@@ -1,5 +1,12 @@
 #pragma once
 
+/// @file
+/// ha-kiosk-weather-sync: the weather-sync daemon. Polls BOM's public
+/// forecast API (BomClient below) and a local InfluxDB holding
+/// Telegraf-collected Ecowitt station readings (InfluxClient), merging both
+/// into the dashboard's JSON snapshot (SnapshotBuilder). Read-only end to
+/// end: no command socket, since both upstreams are read-only.
+
 #include <QJsonValue>
 #include <QNetworkAccessManager>
 #include <QObject>

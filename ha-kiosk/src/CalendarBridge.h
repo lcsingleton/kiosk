@@ -1,5 +1,11 @@
 #pragma once
 
+/// @file
+/// ha-kiosk: the Qt Quick kiosk app. Renders the dashboard UI and bridges
+/// QML to both daemons' JSON snapshots (CalendarBridge below,
+/// WeatherBridge), plus the calendar-sync daemon's command socket for
+/// touch-driven event edits.
+
 #include <QFileSystemWatcher>
 #include <QHash>
 #include <QJsonObject>
@@ -29,14 +35,54 @@ class CalendarBridge : public QObject
 {
 	Q_OBJECT
 	/// Household members from the snapshot's "people" field, for QML to render.
+	/// @return One object per configured person:
+	/// @code{.json}
+	/// { "name": "Mum", "color": "#e91e63" }
+	/// @endcode
 	Q_PROPERTY( QVariantList people READ people NOTIFY snapshotChanged )
-	/// Today's highlighted/important events from the snapshot's "todayHighlights" field.
+	/// Today's highlighted/important (i.e. all-day) events from the snapshot's
+	/// "todayHighlights" field.
+	/// @return One object per all-day event:
+	/// @code{.json}
+	/// { "icon": "📌", "label": "School holidays", "time": "", "eventId": "...",
+	///   "calendarId": "...", "etag": "...", "startIso": "", "endIso": "",
+	///   "attendees": [ { "name": "Mum", "color": "#e91e63", "invited": true } ] }
+	/// @endcode
+	/// `time` is always empty (all-day items carry no clock time); `attendees`
+	/// is one entry per configured person with their current invited state,
+	/// driving the invite/uninvite badges — todaySchedule/weekend/upcoming
+	/// below all carry this same `attendees` shape.
 	Q_PROPERTY( QVariantList todayHighlights READ todayHighlights NOTIFY snapshotChanged )
-	/// Today's full event list from the snapshot's "todaySchedule" field.
+	/// Today's per-person day-grid events from the snapshot's "todaySchedule" field.
+	/// @return One object per (event, matched person) pair — an event matching
+	/// several people gets one row per person, each with that person's own
+	/// `person`/`color`:
+	/// @code{.json}
+	/// { "person": "Mum", "color": "#e91e63", "event": "Dentist", "start": 14.5,
+	///   "duration": 1.0, "eventId": "...", "calendarId": "...", "etag": "...",
+	///   "startIso": "...", "endIso": "...", "attendees": [ ] }
+	/// @endcode
+	/// `start`/`duration` are decimal hours-of-day (14.5 = 2:30pm), for
+	/// positioning on the grid.
 	Q_PROPERTY( QVariantList todaySchedule READ todaySchedule NOTIFY snapshotChanged )
-	/// Weekend's events from the snapshot's "weekend" field.
+	/// This weekend's events from the snapshot's "weekend" field.
+	/// @return One object per event:
+	/// @code{.json}
+	/// { "day": "Saturday", "date": "Jun 14", "title": "BBQ", "time": "2:00 PM",
+	///   "accent": "#e91e63", "eventId": "...", "calendarId": "...", "etag": "...",
+	///   "startIso": "...", "endIso": "...", "attendees": [ ] }
+	/// @endcode
+	/// `accent` is the matched person's color, or a calendar/neutral fallback
+	/// if the event matches nobody configured; `time` is empty for an all-day
+	/// event.
 	Q_PROPERTY( QVariantList weekend READ weekend NOTIFY snapshotChanged )
 	/// Later upcoming events from the snapshot's "upcoming" field.
+	/// @return Same shape as weekend, but `month`/`day` in place of `day`/`date`:
+	/// @code{.json}
+	/// { "month": "JUN", "day": "14", "title": "Dentist", "time": "2:00 PM",
+	///   "accent": "#e91e63", "eventId": "...", "calendarId": "...", "etag": "...",
+	///   "startIso": "...", "endIso": "...", "attendees": [ ] }
+	/// @endcode
 	Q_PROPERTY( QVariantList upcoming READ upcoming NOTIFY snapshotChanged )
 	/// Which calendar a newly-created event lands on — see main.cpp's
 	/// "defaultCalendarId" comment for why this isn't per-person.

@@ -1,5 +1,11 @@
 #pragma once
 
+/// @file
+/// calendar-sync-client: the command-socket wire protocol shared between
+/// ha-kiosk (client side, via CalendarSyncClient below) and
+/// ha-kiosk-google-calendar-sync's CommandServer (server side) — see
+/// CommandTypes.h for the NDJSON envelope both sides speak.
+
 #include <QLocalSocket>
 #include <QObject>
 #include <QSet>
