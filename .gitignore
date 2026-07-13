@@ -1,7 +1,12 @@
 # Build output
 app/build/
 build/
+build-lint/
 dist/
+
+# Generated docs
+docs/_doxygen/
+docs/_build/
 
 # Emulator's live /etc/kiosk (seeded from *.example.json by run.sh) — holds
 # whatever service-account key path/geohash/calendars you point it at

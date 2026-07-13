@@ -6,16 +6,15 @@
 namespace
 {
 // Used when an event's resolved effective color is empty (no colorId, and
-// its calendar has no configured fallback either) — matches the original
-// mock data's "colorOther" for family-wide/unattributed items.
+// its calendar has no configured fallback either) — a neutral accent for
+// family-wide/unattributed items so they still render with some color.
 constexpr auto kNeutralAccent = "#9085e9";
 } // namespace
 
 SnapshotBuilder::SnapshotBuilder( const QVector<PersonConfig> &people,
 								  const QHash<QString, QString> &eventColorIdToHex,
 								  const QHash<QString, QString> &calendarFallbackHex )
-	: m_people( people ), m_eventColorIdToHex( eventColorIdToHex ),
-	  m_calendarFallbackHex( calendarFallbackHex )
+	: m_people( people ), m_eventColorIdToHex( eventColorIdToHex ), m_calendarFallbackHex( calendarFallbackHex )
 {
 	m_today = QDate::currentDate();
 	// ISO day-of-week: Monday=1 .. Sunday=7. Saturday=6. If today IS the
@@ -116,6 +115,10 @@ QJsonArray SnapshotBuilder::attendeeStatus( const QJsonObject &event ) const
 
 QString SnapshotBuilder::resolveFallbackAccent( const QString &calendarId, const QJsonObject &event ) const
 {
+	// Precedence: an event's own colorId (a per-event override a human set
+	// explicitly in Google Calendar) beats its calendar's configured
+	// fallback color, which beats the neutral "other" accent when neither is
+	// available.
 	const QString colorId = event.value( "colorId" ).toString();
 	QString effectiveHex;
 	if ( !colorId.isEmpty() && m_eventColorIdToHex.contains( colorId ) )
@@ -139,8 +142,7 @@ void SnapshotBuilder::classify( const QString &calendarId, const QJsonObject &ev
 	else
 	{
 		startDt = QDateTime::fromString( start.value( "dateTime" ).toString(), Qt::ISODate );
-		endDt = QDateTime::fromString( event.value( "end" ).toObject().value( "dateTime" ).toString(),
-									   Qt::ISODate );
+		endDt = QDateTime::fromString( event.value( "end" ).toObject().value( "dateTime" ).toString(), Qt::ISODate );
 		date = startDt.date();
 	}
 	if ( !date.isValid() )
@@ -171,10 +173,10 @@ void SnapshotBuilder::classify( const QString &calendarId, const QJsonObject &ev
 		if ( allDay )
 		{
 			// All-day/family-wide items aren't attributed to one person's
-			// column regardless of match — same as the original mock.
-			// eventId/calendarId/etag/attendees let the UI's invite/uninvite
-			// badges identify and mutate this event despite it having no
-			// day-grid column of its own.
+			// column regardless of match — they always land in
+			// todayHighlights instead. eventId/calendarId/etag/attendees let
+			// the UI's invite/uninvite badges identify and mutate this event
+			// despite it having no day-grid column of its own.
 			QJsonObject o;
 			o["icon"] = QStringLiteral( "📌" );
 			o["label"] = summary;

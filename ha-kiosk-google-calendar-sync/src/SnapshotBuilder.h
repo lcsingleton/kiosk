@@ -8,43 +8,47 @@
 
 #include "Config.h"
 
-// Normalizes raw Calendar API v3 event JSON into the JSON shape
-// app/DashboardData.qml expects: todayHighlights, todaySchedule, weekend,
-// upcoming, people. Field names match DashboardData.qml's mock data
-// exactly; eventId/calendarId/etag/startIso/endIso/attendees are additive
-// (existing QML bindings ignore fields they don't reference).
-//
-// Classification is by *who the event is tagged to*, not which calendar it
-// came from or what color it's been given: each of an event's
-// attendees[].email is matched against each configured person's email; if
-// none match (most events have no attendees at all), the event's own
-// creator.email is tried instead. An event matching zero configured people
-// still appears in weekend/upcoming/todayHighlights (tagged with a fallback
-// accent — its own colorId if set, else its calendar's configured fallback
-// color — still visually symbolizing its origin) but is left out of
-// todaySchedule's per-person day-grid, which has no column for an
-// unmatched person. An event matching more than one configured person gets
-// one todaySchedule row per matched person (so it shows in every matched
-// column), but weekend/upcoming only carry one accent field, so those use
-// the first match.
+/// Normalizes raw Calendar API v3 event JSON into the JSON shape
+/// app/DashboardData.qml expects: todayHighlights, todaySchedule, weekend,
+/// upcoming, people. Field names match DashboardData.qml's mock data
+/// exactly; eventId/calendarId/etag/startIso/endIso/attendees are additive
+/// (existing QML bindings ignore fields they don't reference).
+///
+/// Classification is by *who the event is tagged to*, not which calendar it
+/// came from or what color it's been given: each of an event's
+/// attendees[].email is matched against each configured person's email; if
+/// none match (most events have no attendees at all), the event's own
+/// creator.email is tried instead. An event matching zero configured people
+/// still appears in weekend/upcoming/todayHighlights (tagged with a fallback
+/// accent — its own colorId if set, else its calendar's configured fallback
+/// color — still visually symbolizing its origin) but is left out of
+/// todaySchedule's per-person day-grid, which has no column for an
+/// unmatched person. An event matching more than one configured person gets
+/// one todaySchedule row per matched person (so it shows in every matched
+/// column), but weekend/upcoming only carry one accent field, so those use
+/// the first match.
 class SnapshotBuilder
 {
   public:
-	// eventColorIdToHex: the live Calendar API "event" palette (numeric id
-	// -> hex), used to resolve an event's own colorId when it has one, as
-	// the fallback accent for an event matching no configured person.
-	// calendarFallbackHex: calendarId -> that calendar's configured
-	// fallback color (already resolved to hex), used the same way when an
-	// event has no colorId of its own.
-	SnapshotBuilder( const QVector<PersonConfig> &people, const QHash<QString, QString> &eventColorIdToHex,
+	/// eventColorIdToHex: the live Calendar API "event" palette (numeric id
+	/// -> hex), used to resolve an event's own colorId when it has one, as
+	/// the fallback accent for an event matching no configured person.
+	/// calendarFallbackHex: calendarId -> that calendar's configured
+	/// fallback color (already resolved to hex), used the same way when an
+	/// event has no colorId of its own.
+	SnapshotBuilder( const QVector<PersonConfig> &people,
+					 const QHash<QString, QString> &eventColorIdToHex,
 					 const QHash<QString, QString> &calendarFallbackHex );
 
-	// Classifies and appends every (non-cancelled) event in `events` —
-	// already filtered by CalendarClient to the [today, +N days) window —
-	// into today/weekend/upcoming buckets based on its own date and
-	// matched people.
+	/// Classifies and appends every (non-cancelled) event in `events` —
+	/// already filtered by CalendarClient to the [today, +N days) window —
+	/// into today/weekend/upcoming buckets based on its own date and
+	/// matched people.
 	void addEvents( const QString &calendarId, const QJsonArray &events );
 
+	/// Assembles everything accumulated so far via addEvents (plus the
+	/// configured people) into the final snapshot JSON object — see the
+	/// class comment above for its exact shape.
 	QJsonObject build() const;
 
   private:

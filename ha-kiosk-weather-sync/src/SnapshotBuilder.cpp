@@ -35,7 +35,7 @@ QString tempString( double celsius )
 
 // Whether a point at `dt` should carry a chart label — every 3rd hour, on
 // the hour. Used for both hourlyForecast (always hourly) and weatherHistory
-// (now sub-hourly buckets, see InfluxClient), so the chart's x-axis stays
+// (sub-hourly buckets, see InfluxClient), so the chart's x-axis stays
 // legible regardless of how many underlying points exist between labels —
 // see LineChart.qml, which places a gridline/label at any point whose
 // `label` is non-empty rather than at a fixed point-index stride.
@@ -122,9 +122,9 @@ double fahrenheitToCelsius( double fahrenheit )
 }
 
 // Telegraf/InfluxDB's finely-bucketed Ecowitt readings (see InfluxClient),
-// reshaped to the same { hour, temp } points as the mock weatherHistory
-// literal it replaces in DashboardData.qml — one decimal place, same as
-// that mock, since this feeds a chart rather than a rounded display label.
+// reshaped to the { hour, temp } points DashboardData.qml's weatherHistory
+// model expects — one decimal place, since this feeds a chart rather than
+// a rounded display label.
 // Only on-the-hour, every-3rd-hour points get a non-empty "hour" label
 // (see isLabelHour) — the rest are blank, since labeling every few-minute
 // bucket would flood the chart's x-axis.
@@ -149,25 +149,29 @@ QJsonArray buildWeatherHistory( const QJsonValue &influxRows )
 // Sourced from InfluxClient::fetchCurrentConditions — the Ecowitt station's
 // own latest reading, not BOM's nearest-station observations (WeatherCard's
 // title already names this station, so its own sensor is the more accurate
-// source for the conditions shown right next to it). Imperial units in,
-// same pre-formatted-string shape as the BOM-sourced version it replaces.
+// source for the conditions shown right next to it). Imperial units in;
+// output is the pre-formatted-string shape DashboardData.qml's observations
+// model expects.
 QJsonObject buildObservations( const QJsonValue &currentConditions )
 {
 	const QJsonObject c = currentConditions.toObject();
 
 	QJsonObject result;
 	result["humidity"] = QString::number( qRound( c.value( "humidity" ).toDouble() ) ) + "%";
-	result["windSpeed"] =
-		QString::number( qRound( c.value( "windspeed" ).toDouble() * 1.60934 ) ) + QStringLiteral( " km/h" );
-	result["rainToday"] =
-		QString::number( c.value( "dailyrain" ).toDouble() * 25.4, 'f', 1 ) + QStringLiteral( " mm" );
+	// mph -> km/h
+	result["windSpeed"] = QString::number( qRound( c.value( "windspeed" ).toDouble() * 1.60934 ) ) + QStringLiteral( " km/h" );
+	// inches -> mm; one decimal place, since daily rainfall totals here are
+	// small enough that a rounded integer would lose most of the signal.
+	result["rainToday"] = QString::number( c.value( "dailyrain" ).toDouble() * 25.4, 'f', 1 ) + QStringLiteral( " mm" );
 	return result;
 }
 
 } // namespace
 
-QJsonObject SnapshotBuilder::build( const QJsonValue &daily, const QJsonValue &hourly,
-									 const QJsonValue &currentConditions, const QJsonValue &weatherHistory )
+QJsonObject SnapshotBuilder::build( const QJsonValue &daily,
+									const QJsonValue &hourly,
+									const QJsonValue &currentConditions,
+									const QJsonValue &weatherHistory )
 {
 	QJsonObject snapshot;
 	snapshot["hourlyForecast"] = buildHourlyForecast( hourly );

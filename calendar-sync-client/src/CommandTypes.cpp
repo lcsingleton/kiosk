@@ -64,6 +64,9 @@ ScheduleEventPayload ScheduleEventPayload::fromJson( const QJsonObject &obj )
 QJsonObject ScheduleEventPayload::toJson() const
 {
 	QJsonObject obj{ { "summary", summary }, { "start", start }, { "end", end } };
+	// Omitted rather than sent as an empty string/array — fromJson() above
+	// treats a missing key the same as an empty one, so this only trims the
+	// wire payload and doesn't create a distinct "absent" state.
 	if ( !description.isEmpty() )
 		obj["description"] = description;
 	if ( !attendees.isEmpty() )
@@ -122,8 +125,11 @@ QJsonObject ParticipantPayload::toJson() const
 
 QJsonObject AuthorizationPendingEvent::toJson() const
 {
+	// The "event" key (rather than "commandId") is what lets
+	// CalendarSyncClient::handleResultLine tell this apart from a Result
+	// reply on the shared line stream.
 	return QJsonObject{ { "event", CommandEvent::AuthorizationPending },
-						 { "verificationUrl", verificationUrl },
-						 { "userCode", userCode },
-						 { "expiresInSecs", expiresInSecs } };
+						{ "verificationUrl", verificationUrl },
+						{ "userCode", userCode },
+						{ "expiresInSecs", expiresInSecs } };
 }

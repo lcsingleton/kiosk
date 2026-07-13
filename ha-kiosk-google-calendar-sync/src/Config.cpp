@@ -41,8 +41,7 @@ bool Config::load( const QString &path, Config &out, QString &error )
 		cal.color = c.value( "color" ).toString();
 		if ( cal.calendarId.isEmpty() )
 		{
-			error =
-				QStringLiteral( "config %1: every entry in \"calendars\" needs \"calendarId\"" ).arg( path );
+			error = QStringLiteral( "config %1: every entry in \"calendars\" needs \"calendarId\"" ).arg( path );
 			return false;
 		}
 		out.calendars.append( cal );
@@ -63,9 +62,9 @@ bool Config::load( const QString &path, Config &out, QString &error )
 		}
 		if ( person.person.isEmpty() || person.color.isEmpty() || person.emails.isEmpty() )
 		{
-			error = QStringLiteral(
-						"config %1: every entry in \"people\" needs \"person\", \"color\", and a non-empty \"emails\"" )
-						.arg( path );
+			error =
+				QStringLiteral( "config %1: every entry in \"people\" needs \"person\", \"color\", and a non-empty \"emails\"" )
+					.arg( path );
 			return false;
 		}
 		out.people.append( person );
@@ -92,9 +91,13 @@ bool Config::load( const QString &path, Config &out, QString &error )
 		return false;
 	}
 
-	const int delegatedFieldsSet = int( !out.oauthClientId.isEmpty() ) +
-									int( !out.oauthClientSecret.isEmpty() ) +
-									int( !out.userTokenPath.isEmpty() );
+	// oauthClientId/oauthClientSecret/userTokenPath gate DelegatedAuth's
+	// device-code fallback (see Config.h): any one of them without the other
+	// two is a config file that can't actually authenticate (missing a
+	// credential or nowhere to persist the refresh token), so only "all
+	// three set" or "all three empty" are valid states.
+	const int delegatedFieldsSet =
+		int( !out.oauthClientId.isEmpty() ) + int( !out.oauthClientSecret.isEmpty() ) + int( !out.userTokenPath.isEmpty() );
 	if ( delegatedFieldsSet != 0 && delegatedFieldsSet != 3 )
 	{
 		error = QStringLiteral( "config %1: \"oauthClientId\", \"oauthClientSecret\", and \"userTokenPath\" "

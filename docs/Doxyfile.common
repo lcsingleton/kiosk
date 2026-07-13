@@ -1,0 +1,55 @@
+# Shared Doxygen settings, pulled in via @INCLUDE by each component's own
+# Doxyfile.<component> (which sets INPUT/OUTPUT_DIRECTORY). Doxygen parses
+# public headers only (see each component file's INPUT) and emits XML for
+# Sphinx+Breathe to render — no Doxygen-generated HTML/LaTeX of its own.
+# Components are documented as separate Doxygen projects (separate
+# OUTPUT_DIRECTORY, separate breathe_projects entry in conf.py) rather than
+# one shared run, because two unrelated daemons here happen to reuse the
+# same type names (Config, SnapshotBuilder, SnapshotWriter) for unrelated
+# things — a single shared symbol table would make Breathe/Sphinx treat
+# those as the same declaration twice. STRIP_FROM_PATH must be absolute:
+# that's the in-container repo root docs.sh/lint.sh/build.sh all mount to.
+PROJECT_NAME            = "ha-tab kiosk"
+PROJECT_BRIEF           = "Kiosk tablet daemons and QML shell"
+STRIP_FROM_PATH         = /home/kiosk/kiosk
+
+FILE_PATTERNS           = *.h
+RECURSIVE               = NO
+
+# Q_INVOKABLE isn't a macro Doxygen (or Sphinx's C++ domain, downstream)
+# understands natively the way it does Q_OBJECT/Q_PROPERTY/signals/slots —
+# left as-is it breaks Breathe's signature parsing. Strip it via the
+# preprocessor rather than teaching every doc comment about it.
+ENABLE_PREPROCESSING    = YES
+MACRO_EXPANSION         = YES
+EXPAND_ONLY_PREDEF      = YES
+PREDEFINED              = Q_INVOKABLE=
+
+# See filter-qt-macros.sh: rewrites each Q_PROPERTY into its getter's doc
+# comment so Breathe never sees a colliding property/getter declaration.
+INPUT_FILTER            = docs/filter-qt-macros.sh
+
+# Public surface only: no .cpp-internal helpers or private members.
+EXTRACT_ALL             = NO
+EXTRACT_PRIVATE         = NO
+EXTRACT_STATIC          = NO
+EXTRACT_LOCAL_METHODS   = NO
+
+JAVADOC_AUTOBRIEF       = YES
+QUIET                   = YES
+WARN_IF_UNDOCUMENTED    = YES
+WARN_AS_ERROR           = YES
+
+# Debian 12's doxygen (1.9.4) has a confirmed bug: with EXTRACT_ALL=NO, it
+# spuriously reports "parameters of member X are not documented" on any
+# class/struct member function — even ones with correct @param tags —
+# while free functions are unaffected. EXTRACT_ALL=YES isn't a workaround:
+# it also silently disables WARN_IF_UNDOCUMENTED, the check that actually
+# matters here. So WARN_NO_PARAMDOC stays off; WARN_IF_UNDOCUMENTED alone
+# still catches a genuinely undocumented public class/method.
+WARN_NO_PARAMDOC        = NO
+
+GENERATE_HTML           = NO
+GENERATE_LATEX          = NO
+GENERATE_XML            = YES
+XML_PROGRAMLISTING      = NO

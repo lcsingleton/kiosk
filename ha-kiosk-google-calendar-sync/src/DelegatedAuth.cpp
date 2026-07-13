@@ -23,10 +23,11 @@ constexpr qint64 kRefreshMarginSecs = 60;
 
 } // namespace
 
-DelegatedAuth::DelegatedAuth( const QString &clientId, const QString &clientSecret,
-							  const QString &tokenStorePath, QObject *parent )
-	: QObject( parent ), m_clientId( clientId ), m_clientSecret( clientSecret ),
-	  m_tokenStorePath( tokenStorePath )
+DelegatedAuth::DelegatedAuth( const QString &clientId,
+							  const QString &clientSecret,
+							  const QString &tokenStorePath,
+							  QObject *parent )
+	: QObject( parent ), m_clientId( clientId ), m_clientSecret( clientSecret ), m_tokenStorePath( tokenStorePath )
 {
 }
 
@@ -44,14 +45,17 @@ void DelegatedAuth::persistRefreshToken( const QString &refreshToken ) const
 	QFile file( m_tokenStorePath );
 	if ( !file.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
 		return;
-	file.write(
-		QJsonDocument( QJsonObject{ { "refresh_token", refreshToken } } ).toJson( QJsonDocument::Compact ) );
+	file.write( QJsonDocument( QJsonObject{ { "refresh_token", refreshToken } } ).toJson( QJsonDocument::Compact ) );
 	file.close();
 	file.setPermissions( QFile::ReadOwner | QFile::WriteOwner );
 }
 
 void DelegatedAuth::accessToken( std::function<void( QString, QString )> callback )
 {
+	// Three-tier precedence, cheapest/fastest first: an unexpired in-memory
+	// token needs no network call at all; a refresh token on disk needs one
+	// silent token-endpoint round trip; only with neither does this fall all
+	// the way back to a fresh device-code grant, which needs a human.
 	const qint64 now = QDateTime::currentSecsSinceEpoch();
 	if ( !m_cachedToken.isEmpty() && now < m_cachedTokenExpiry )
 	{
@@ -80,19 +84,23 @@ void DelegatedAuth::refreshAccessToken( std::function<void( QString, QString )> 
 	request.setHeader( QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded" );
 
 	QNetworkReply *reply = m_nam.post( request, form.query( QUrl::FullyEncoded ).toUtf8() );
-	connect( reply, &QNetworkReply::finished, this, [this, reply, callback]() {
-		reply->deleteLater();
-		if ( reply->error() != QNetworkReply::NoError )
-		{
-			// The stored refresh token can be revoked out from under us
-			// (e.g. a human removed the app's access at
-			// myaccount.google.com/permissions) — fall back to a fresh
-			// device-code grant rather than failing forever.
-			requestDeviceCode( callback );
-			return;
-		}
-		handleTokenResponse( QJsonDocument::fromJson( reply->readAll() ).object(), callback );
-	} );
+	connect( reply,
+			 &QNetworkReply::finished,
+			 this,
+			 [this, reply, callback]()
+			 {
+				 reply->deleteLater();
+				 if ( reply->error() != QNetworkReply::NoError )
+				 {
+					 // The stored refresh token can be revoked out from under us
+					 // (e.g. a human removed the app's access at
+					 // myaccount.google.com/permissions) — fall back to a fresh
+					 // device-code grant rather than failing forever.
+					 requestDeviceCode( callback );
+					 return;
+				 }
+				 handleTokenResponse( QJsonDocument::fromJson( reply->readAll() ).object(), callback );
+			 } );
 }
 
 void DelegatedAuth::requestDeviceCode( std::function<void( QString, QString )> callback )
@@ -105,35 +113,42 @@ void DelegatedAuth::requestDeviceCode( std::function<void( QString, QString )> c
 	request.setHeader( QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded" );
 
 	QNetworkReply *reply = m_nam.post( request, form.query( QUrl::FullyEncoded ).toUtf8() );
-	connect( reply, &QNetworkReply::finished, this, [this, reply, callback]() {
-		reply->deleteLater();
-		const QByteArray body = reply->readAll();
-		if ( reply->error() != QNetworkReply::NoError )
-		{
-			callback( QString(), QStringLiteral( "device code request failed: %1 — %2" )
-										.arg( reply->errorString(), QString::fromUtf8( body ) ) );
-			return;
-		}
+	connect( reply,
+			 &QNetworkReply::finished,
+			 this,
+			 [this, reply, callback]()
+			 {
+				 reply->deleteLater();
+				 const QByteArray body = reply->readAll();
+				 if ( reply->error() != QNetworkReply::NoError )
+				 {
+					 callback( QString(),
+							   QStringLiteral( "device code request failed: %1 — %2" )
+								   .arg( reply->errorString(), QString::fromUtf8( body ) ) );
+					 return;
+				 }
 
-		const QJsonObject obj = QJsonDocument::fromJson( body ).object();
-		const QString deviceCode = obj.value( "device_code" ).toString();
-		const QString userCode = obj.value( "user_code" ).toString();
-		const QString verificationUrl = obj.value( "verification_url" ).toString();
-		const int expiresIn = obj.value( "expires_in" ).toInt( 1800 );
-		const int interval = qMax( 1, obj.value( "interval" ).toInt( 5 ) );
+				 const QJsonObject obj = QJsonDocument::fromJson( body ).object();
+				 const QString deviceCode = obj.value( "device_code" ).toString();
+				 const QString userCode = obj.value( "user_code" ).toString();
+				 const QString verificationUrl = obj.value( "verification_url" ).toString();
+				 const int expiresIn = obj.value( "expires_in" ).toInt( 1800 );
+				 const int interval = qMax( 1, obj.value( "interval" ).toInt( 5 ) );
 
-		if ( deviceCode.isEmpty() || userCode.isEmpty() )
-		{
-			callback( QString(), QStringLiteral( "device code endpoint returned no device_code/user_code" ) );
-			return;
-		}
+				 if ( deviceCode.isEmpty() || userCode.isEmpty() )
+				 {
+					 callback( QString(), QStringLiteral( "device code endpoint returned no device_code/user_code" ) );
+					 return;
+				 }
 
-		emit authorizationPending( verificationUrl, userCode, expiresIn );
-		pollForToken( deviceCode, interval, QDateTime::currentSecsSinceEpoch() + expiresIn, callback );
-	} );
+				 emit authorizationPending( verificationUrl, userCode, expiresIn );
+				 pollForToken( deviceCode, interval, QDateTime::currentSecsSinceEpoch() + expiresIn, callback );
+			 } );
 }
 
-void DelegatedAuth::pollForToken( const QString &deviceCode, int intervalSecs, qint64 deadlineEpoch,
+void DelegatedAuth::pollForToken( const QString &deviceCode,
+								  int intervalSecs,
+								  qint64 deadlineEpoch,
 								  std::function<void( QString, QString )> callback )
 {
 	if ( QDateTime::currentSecsSinceEpoch() >= deadlineEpoch )
@@ -142,46 +157,56 @@ void DelegatedAuth::pollForToken( const QString &deviceCode, int intervalSecs, q
 		return;
 	}
 
-	QTimer::singleShot( intervalSecs * 1000, this, [this, deviceCode, intervalSecs, deadlineEpoch, callback]() {
-		QUrlQuery form;
-		form.addQueryItem( "client_id", m_clientId );
-		form.addQueryItem( "client_secret", m_clientSecret );
-		form.addQueryItem( "device_code", deviceCode );
-		form.addQueryItem( "grant_type", QString::fromLatin1( kDeviceGrantType ) );
+	QTimer::singleShot( intervalSecs * 1000,
+						this,
+						[this, deviceCode, intervalSecs, deadlineEpoch, callback]()
+						{
+							QUrlQuery form;
+							form.addQueryItem( "client_id", m_clientId );
+							form.addQueryItem( "client_secret", m_clientSecret );
+							form.addQueryItem( "device_code", deviceCode );
+							form.addQueryItem( "grant_type", QString::fromLatin1( kDeviceGrantType ) );
 
-		QNetworkRequest request( QUrl( QString::fromLatin1( kTokenEndpoint ) ) );
-		request.setHeader( QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded" );
+							QNetworkRequest request( QUrl( QString::fromLatin1( kTokenEndpoint ) ) );
+							request.setHeader( QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded" );
 
-		QNetworkReply *reply = m_nam.post( request, form.query( QUrl::FullyEncoded ).toUtf8() );
-		connect( reply, &QNetworkReply::finished, this,
-				 [this, reply, deviceCode, intervalSecs, deadlineEpoch, callback]() {
-					 reply->deleteLater();
-					 const QJsonObject obj = QJsonDocument::fromJson( reply->readAll() ).object();
-					 const QString error = obj.value( "error" ).toString();
+							QNetworkReply *reply = m_nam.post( request, form.query( QUrl::FullyEncoded ).toUtf8() );
+							connect( reply,
+									 &QNetworkReply::finished,
+									 this,
+									 [this, reply, deviceCode, intervalSecs, deadlineEpoch, callback]()
+									 {
+										 reply->deleteLater();
+										 const QJsonObject obj = QJsonDocument::fromJson( reply->readAll() ).object();
+										 const QString error = obj.value( "error" ).toString();
 
-					 if ( error == QLatin1String( "authorization_pending" ) )
-					 {
-						 pollForToken( deviceCode, intervalSecs, deadlineEpoch, callback );
-						 return;
-					 }
-					 if ( error == QLatin1String( "slow_down" ) )
-					 {
-						 pollForToken( deviceCode, intervalSecs + 5, deadlineEpoch, callback );
-						 return;
-					 }
-					 if ( !error.isEmpty() )
-					 {
-						 callback( QString(), QStringLiteral( "device code grant failed: %1" ).arg( error ) );
-						 return;
-					 }
+										 // RFC 8628 §3.5 polling errors: "authorization_pending" just
+										 // means the human hasn't finished yet, keep polling at the
+										 // same cadence; "slow_down" means we're polling too fast for
+										 // Google's liking and must widen the interval before trying
+										 // again. Any other error value is terminal for this grant.
+										 if ( error == QLatin1String( "authorization_pending" ) )
+										 {
+											 pollForToken( deviceCode, intervalSecs, deadlineEpoch, callback );
+											 return;
+										 }
+										 if ( error == QLatin1String( "slow_down" ) )
+										 {
+											 pollForToken( deviceCode, intervalSecs + 5, deadlineEpoch, callback );
+											 return;
+										 }
+										 if ( !error.isEmpty() )
+										 {
+											 callback( QString(), QStringLiteral( "device code grant failed: %1" ).arg( error ) );
+											 return;
+										 }
 
-					 handleTokenResponse( obj, callback );
-				 } );
-	} );
+										 handleTokenResponse( obj, callback );
+									 } );
+						} );
 }
 
-void DelegatedAuth::handleTokenResponse( const QJsonObject &obj,
-										 std::function<void( QString, QString )> callback )
+void DelegatedAuth::handleTokenResponse( const QJsonObject &obj, std::function<void( QString, QString )> callback )
 {
 	const QString accessToken = obj.value( "access_token" ).toString();
 	const int expiresIn = obj.value( "expires_in" ).toInt();

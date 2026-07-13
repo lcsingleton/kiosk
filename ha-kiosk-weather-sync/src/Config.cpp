@@ -32,6 +32,11 @@ bool Config::load( const QString &path, Config &out, QString &error )
 	out.influxBucket = root.value( "influxBucket" ).toString();
 	out.influxToken = root.value( "influxToken" ).toString();
 
+	// BOM's hourly-forecast and observations endpoints reject anything but a
+	// lowercase-alphanumeric 6-character geohash (only the /locations search
+	// endpoint returns a longer, 7-character one — see Config.h), so this
+	// shape is enforced here rather than letting a malformed geohash surface
+	// later as a cryptic BOM API error.
 	static const QRegularExpression geohashPattern( QStringLiteral( "^[0-9a-z]{6}$" ) );
 	if ( out.geohash.isEmpty() || !geohashPattern.match( out.geohash ).hasMatch() )
 	{
@@ -47,6 +52,10 @@ bool Config::load( const QString &path, Config &out, QString &error )
 		return false;
 	}
 
+	// The four InfluxDB settings only make sense as a set (see Config.h), so
+	// they're validated as one optional group rather than individually: a
+	// config is either fully wired for InfluxDB or plainly not using it,
+	// never silently half-configured.
 	const bool anyInflux =
 		!out.influxUrl.isEmpty() || !out.influxOrg.isEmpty() || !out.influxBucket.isEmpty() || !out.influxToken.isEmpty();
 	const bool allInflux =

@@ -81,14 +81,12 @@ QJsonObject parseLatestValues( const QByteArray &body )
 
 } // namespace
 
-InfluxClient::InfluxClient( const QString &url, const QString &org, const QString &bucket, const QString &token,
-							QObject *parent )
+InfluxClient::InfluxClient( const QString &url, const QString &org, const QString &bucket, const QString &token, QObject *parent )
 	: QObject( parent ), m_url( url ), m_org( org ), m_bucket( bucket ), m_token( token )
 {
 }
 
-void InfluxClient::fetchTemperatureHistory( int hours, int windowMinutes,
-											 std::function<void( QJsonValue, QString )> callback )
+void InfluxClient::fetchTemperatureHistory( int hours, int windowMinutes, std::function<void( QJsonValue, QString )> callback )
 {
 	QUrl url( m_url + "/api/v2/query" );
 	QUrlQuery query;
@@ -102,29 +100,33 @@ void InfluxClient::fetchTemperatureHistory( int hours, int windowMinutes,
 
 	// bucket comes from local operator-controlled config, not untrusted
 	// input, so string interpolation into the Flux query body is fine here.
-	const QString flux =
-		QStringLiteral( "from(bucket: \"%1\")\n"
-						 "  |> range(start: -%2h)\n"
-						 "  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"temp\")\n"
-						 "  |> aggregateWindow(every: %3m, fn: mean, createEmpty: false)\n" )
-			.arg( m_bucket )
-			.arg( hours )
-			.arg( windowMinutes );
+	const QString flux = QStringLiteral( "from(bucket: \"%1\")\n"
+										 "  |> range(start: -%2h)\n"
+										 "  |> filter(fn: (r) => r._measurement == \"weather\" and r._field == \"temp\")\n"
+										 "  |> aggregateWindow(every: %3m, fn: mean, createEmpty: false)\n" )
+							 .arg( m_bucket )
+							 .arg( hours )
+							 .arg( windowMinutes );
 
 	QNetworkReply *reply = m_nam.post( request, flux.toUtf8() );
-	connect( reply, &QNetworkReply::finished, this, [reply, callback]() {
-		reply->deleteLater();
-		const QByteArray body = reply->readAll();
-		if ( reply->error() != QNetworkReply::NoError )
-		{
-			callback( {}, QStringLiteral( "InfluxDB query failed: %1%2" )
-							  .arg( reply->errorString(),
-									body.isEmpty() ? QString()
-												   : QStringLiteral( " — %1" ).arg( QString::fromUtf8( body ) ) ) );
-			return;
-		}
-		callback( parseCsv( body, QStringLiteral( "_time" ), QStringLiteral( "_value" ) ), QString() );
-	} );
+	connect( reply,
+			 &QNetworkReply::finished,
+			 this,
+			 [reply, callback]()
+			 {
+				 reply->deleteLater();
+				 const QByteArray body = reply->readAll();
+				 if ( reply->error() != QNetworkReply::NoError )
+				 {
+					 callback(
+						 {},
+						 QStringLiteral( "InfluxDB query failed: %1%2" )
+							 .arg( reply->errorString(),
+								   body.isEmpty() ? QString() : QStringLiteral( " — %1" ).arg( QString::fromUtf8( body ) ) ) );
+					 return;
+				 }
+				 callback( parseCsv( body, QStringLiteral( "_time" ), QStringLiteral( "_value" ) ), QString() );
+			 } );
 }
 
 void InfluxClient::fetchCurrentConditions( std::function<void( QJsonValue, QString )> callback )
@@ -143,26 +145,30 @@ void InfluxClient::fetchCurrentConditions( std::function<void( QJsonValue, QStri
 	// note above doesn't apply here, this is just slack for the station
 	// being briefly offline — last() still finds the latest reading in that
 	// window rather than the query coming back empty.
-	const QString flux =
-		QStringLiteral( "from(bucket: \"%1\")\n"
-						 "  |> range(start: -6h)\n"
-						 "  |> filter(fn: (r) => r._measurement == \"weather\" and (r._field == \"humidity\" "
-						 "or r._field == \"windspeed\" or r._field == \"dailyrain\"))\n"
-						 "  |> last()\n" )
-			.arg( m_bucket );
+	const QString flux = QStringLiteral( "from(bucket: \"%1\")\n"
+										 "  |> range(start: -6h)\n"
+										 "  |> filter(fn: (r) => r._measurement == \"weather\" and (r._field == \"humidity\" "
+										 "or r._field == \"windspeed\" or r._field == \"dailyrain\"))\n"
+										 "  |> last()\n" )
+							 .arg( m_bucket );
 
 	QNetworkReply *reply = m_nam.post( request, flux.toUtf8() );
-	connect( reply, &QNetworkReply::finished, this, [reply, callback]() {
-		reply->deleteLater();
-		const QByteArray body = reply->readAll();
-		if ( reply->error() != QNetworkReply::NoError )
-		{
-			callback( {}, QStringLiteral( "InfluxDB query failed: %1%2" )
-							  .arg( reply->errorString(),
-									body.isEmpty() ? QString()
-												   : QStringLiteral( " — %1" ).arg( QString::fromUtf8( body ) ) ) );
-			return;
-		}
-		callback( parseLatestValues( body ), QString() );
-	} );
+	connect( reply,
+			 &QNetworkReply::finished,
+			 this,
+			 [reply, callback]()
+			 {
+				 reply->deleteLater();
+				 const QByteArray body = reply->readAll();
+				 if ( reply->error() != QNetworkReply::NoError )
+				 {
+					 callback(
+						 {},
+						 QStringLiteral( "InfluxDB query failed: %1%2" )
+							 .arg( reply->errorString(),
+								   body.isEmpty() ? QString() : QStringLiteral( " — %1" ).arg( QString::fromUtf8( body ) ) ) );
+					 return;
+				 }
+				 callback( parseLatestValues( body ), QString() );
+			 } );
 }

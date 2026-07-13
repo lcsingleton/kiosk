@@ -7,24 +7,27 @@
 
 #include <QNetworkAccessManager>
 
-// Authenticates as a Google Cloud service account: signs a short-lived JWT
-// with the service account's private key (RS256/OpenSSL) and exchanges it
-// for a bearer access token, caching the token until shortly before it
-// expires. This is the only place in the daemon that touches the service
-// account's private key.
+/// Authenticates as a Google Cloud service account: signs a short-lived JWT
+/// with the service account's private key (RS256/OpenSSL) and exchanges it
+/// for a bearer access token, caching the token until shortly before it
+/// expires. This is the only place in the daemon that touches the service
+/// account's private key.
 class GoogleAuth : public QObject
 {
 	Q_OBJECT
   public:
+	/// Stores `serviceAccountKeyPath` for init() to load; does no I/O itself.
+	/// @param serviceAccountKeyPath See above.
+	/// @param parent Standard QObject ownership parent.
 	explicit GoogleAuth( const QString &serviceAccountKeyPath, QObject *parent = nullptr );
 
-	// Loads and parses the service account key file. Must succeed before
-	// accessToken() is called. Returns false and fills `error` on failure
-	// (missing/unreadable file, malformed JSON, unparsable private key).
+	/// Loads and parses the service account key file. Must succeed before
+	/// accessToken() is called. Returns false and fills `error` on failure
+	/// (missing/unreadable file, malformed JSON, unparsable private key).
 	bool init( QString &error );
 
-	// Invokes `callback` with a valid bearer token, refreshing/re-signing
-	// as needed. On failure, token is empty and error is set.
+	/// Invokes `callback` with a valid bearer token, refreshing/re-signing
+	/// as needed. On failure, token is empty and error is set.
 	void accessToken( std::function<void( QString token, QString error )> callback );
 
   private:

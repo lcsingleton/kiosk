@@ -1,0 +1,4 @@
+INPUT                   = ha-kiosk-weather-sync/src
+OUTPUT_DIRECTORY        = docs/_doxygen/ha-kiosk-weather-sync
+
+@INCLUDE = docs/Doxyfile.common

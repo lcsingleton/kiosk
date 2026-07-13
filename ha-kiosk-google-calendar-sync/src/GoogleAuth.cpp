@@ -53,8 +53,7 @@ bool GoogleAuth::init( QString &error )
 	QFile file( m_keyPath );
 	if ( !file.open( QIODevice::ReadOnly ) )
 	{
-		error =
-			QStringLiteral( "cannot open service account key %1: %2" ).arg( m_keyPath, file.errorString() );
+		error = QStringLiteral( "cannot open service account key %1: %2" ).arg( m_keyPath, file.errorString() );
 		return false;
 	}
 
@@ -62,8 +61,7 @@ bool GoogleAuth::init( QString &error )
 	const QJsonDocument doc = QJsonDocument::fromJson( file.readAll(), &parseError );
 	if ( parseError.error != QJsonParseError::NoError )
 	{
-		error = QStringLiteral( "service account key %1 is not valid JSON: %2" )
-					.arg( m_keyPath, parseError.errorString() );
+		error = QStringLiteral( "service account key %1 is not valid JSON: %2" ).arg( m_keyPath, parseError.errorString() );
 		return false;
 	}
 	const QJsonObject root = doc.object();
@@ -75,8 +73,7 @@ bool GoogleAuth::init( QString &error )
 
 	if ( m_clientEmail.isEmpty() || m_privateKeyPem.isEmpty() )
 	{
-		error = QStringLiteral( "service account key %1 is missing \"client_email\" or \"private_key\"" )
-					.arg( m_keyPath );
+		error = QStringLiteral( "service account key %1 is missing \"client_email\" or \"private_key\"" ).arg( m_keyPath );
 		return false;
 	}
 	return true;
@@ -86,18 +83,20 @@ QString GoogleAuth::buildSignedJwt( QString &error ) const
 {
 	const qint64 now = QDateTime::currentSecsSinceEpoch();
 
-	const QJsonObject header{ { "alg", "RS256" }, 
-							  { "typ", "JWT" } };
+	const QJsonObject header{ { "alg", "RS256" }, { "typ", "JWT" } };
 	const QJsonObject claims{ { "iss", m_clientEmail },
 							  { "scope", kScope },
 							  { "aud", kTokenEndpoint },
 							  { "iat", now },
 							  { "exp", now + kJwtLifetimeSecs } };
 
-	const QByteArray signingInput =
-		base64UrlEncode( QJsonDocument( header ).toJson( QJsonDocument::Compact ) ) + "." +
-		base64UrlEncode( QJsonDocument( claims ).toJson( QJsonDocument::Compact ) );
+	// JWS compact serialization: base64url(header) "." base64url(claims). This
+	// concatenation, not the JSON on its own, is what actually gets signed.
+	const QByteArray signingInput = base64UrlEncode( QJsonDocument( header ).toJson( QJsonDocument::Compact ) ) + "." +
+									base64UrlEncode( QJsonDocument( claims ).toJson( QJsonDocument::Compact ) );
 
+	// Parse the PEM private key out of an in-memory buffer (no temp file on
+	// disk holding key material).
 	BIO *bio = BIO_new_mem_buf( m_privateKeyPem.constData(), m_privateKeyPem.size() );
 	EVP_PKEY *pkey = PEM_read_bio_PrivateKey( bio, nullptr, nullptr, nullptr );
 	BIO_free( bio );
@@ -109,19 +108,31 @@ QString GoogleAuth::buildSignedJwt( QString &error ) const
 
 	EVP_MD_CTX *ctx = EVP_MD_CTX_new();
 	QByteArray signature;
+	// RS256 = RSASSA-PKCS1-v1_5 with SHA-256, which is exactly what
+	// EVP_DigestSignInit + EVP_sha256() produces for an RSA key.
 	bool ok = ctx && EVP_DigestSignInit( ctx, nullptr, EVP_sha256(), nullptr, pkey ) == 1;
 	if ( ok )
 	{
+		// EVP_DigestSign's two-call pattern: first call with a null output
+		// buffer just reports the signature size needed (sigLen), so the
+		// buffer can be sized exactly before the second call actually signs.
 		size_t sigLen = 0;
-		ok = EVP_DigestSign( ctx, nullptr, &sigLen,
+		ok = EVP_DigestSign( ctx,
+							 nullptr,
+							 &sigLen,
 							 reinterpret_cast<const unsigned char *>( signingInput.constData() ),
 							 signingInput.size() ) == 1;
 		if ( ok )
 		{
 			signature.resize( static_cast<int>( sigLen ) );
-			ok = EVP_DigestSign( ctx, reinterpret_cast<unsigned char *>( signature.data() ), &sigLen,
+			ok = EVP_DigestSign( ctx,
+								 reinterpret_cast<unsigned char *>( signature.data() ),
+								 &sigLen,
 								 reinterpret_cast<const unsigned char *>( signingInput.constData() ),
 								 signingInput.size() ) == 1;
+			// The actual signature can come back shorter than the
+			// worst-case sigLen from the sizing call — trim to what was
+			// really written.
 			signature.resize( static_cast<int>( sigLen ) );
 		}
 	}
@@ -167,30 +178,34 @@ void GoogleAuth::requestToken( const QString &jwt, std::function<void( QString, 
 	request.setHeader( QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded" );
 
 	QNetworkReply *reply = m_nam.post( request, body.query( QUrl::FullyEncoded ).toUtf8() );
-	connect( reply, &QNetworkReply::finished, this, [this, reply, callback]() {
-		reply->deleteLater();
-		if ( reply->error() != QNetworkReply::NoError )
-		{
-			const QByteArray body = reply->readAll();
-			callback( QString(),
-					  QStringLiteral( "token request failed: %1%2" )
-						  .arg( reply->errorString(), body.isEmpty() ? QString()
-																	 : QStringLiteral( " — %1" ).arg(
-																		   QString::fromUtf8( body ) ) ) );
-			return;
-		}
+	connect( reply,
+			 &QNetworkReply::finished,
+			 this,
+			 [this, reply, callback]()
+			 {
+				 reply->deleteLater();
+				 if ( reply->error() != QNetworkReply::NoError )
+				 {
+					 const QByteArray body = reply->readAll();
+					 callback(
+						 QString(),
+						 QStringLiteral( "token request failed: %1%2" )
+							 .arg( reply->errorString(),
+								   body.isEmpty() ? QString() : QStringLiteral( " — %1" ).arg( QString::fromUtf8( body ) ) ) );
+					 return;
+				 }
 
-		const QJsonObject obj = QJsonDocument::fromJson( reply->readAll() ).object();
-		const QString token = obj.value( "access_token" ).toString();
-		const int expiresIn = obj.value( "expires_in" ).toInt();
-		if ( token.isEmpty() )
-		{
-			callback( QString(), QStringLiteral( "token endpoint returned no access_token" ) );
-			return;
-		}
+				 const QJsonObject obj = QJsonDocument::fromJson( reply->readAll() ).object();
+				 const QString token = obj.value( "access_token" ).toString();
+				 const int expiresIn = obj.value( "expires_in" ).toInt();
+				 if ( token.isEmpty() )
+				 {
+					 callback( QString(), QStringLiteral( "token endpoint returned no access_token" ) );
+					 return;
+				 }
 
-		m_cachedToken = token;
-		m_cachedTokenExpiry = QDateTime::currentSecsSinceEpoch() + expiresIn - kRefreshMarginSecs;
-		callback( token, QString() );
-	} );
+				 m_cachedToken = token;
+				 m_cachedTokenExpiry = QDateTime::currentSecsSinceEpoch() + expiresIn - kRefreshMarginSecs;
+				 callback( token, QString() );
+			 } );
 }

@@ -1,0 +1,4 @@
+INPUT                   = calendar-sync-client/include/calendar-sync-client
+OUTPUT_DIRECTORY        = docs/_doxygen/calendar-sync-client
+
+@INCLUDE = docs/Doxyfile.common

@@ -1,0 +1,4 @@
+INPUT                   = kiosk-log/include/kiosk-log
+OUTPUT_DIRECTORY        = docs/_doxygen/kiosk-log
+
+@INCLUDE = docs/Doxyfile.common

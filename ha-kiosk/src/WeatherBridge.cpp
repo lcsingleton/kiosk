@@ -6,8 +6,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 
-WeatherBridge::WeatherBridge( const QString &snapshotPath, QObject *parent )
-	: QObject( parent ), m_snapshotPath( snapshotPath )
+WeatherBridge::WeatherBridge( const QString &snapshotPath, QObject *parent ) : QObject( parent ), m_snapshotPath( snapshotPath )
 {
 	connect( &m_watcher, &QFileSystemWatcher::fileChanged, this, &WeatherBridge::reloadSnapshot );
 	connect( &m_watcher, &QFileSystemWatcher::directoryChanged, this, &WeatherBridge::reloadSnapshot );
@@ -29,6 +28,9 @@ void WeatherBridge::reloadSnapshot()
 		m_snapshot = QJsonDocument::fromJson( file.readAll() ).object();
 		emit snapshotChanged();
 	}
+	// else: m_snapshot and the Q_PROPERTYs backed by it are left at their last-good value and
+	// snapshotChanged is not emitted, so a transient read failure (e.g. the daemon's rename
+	// window) never flashes the dashboard to empty.
 
 	// Re-arm the file watch every time: inotify drops a watch across the
 	// atomic rename the daemon uses to replace this file, so it must be

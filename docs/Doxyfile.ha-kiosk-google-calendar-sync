@@ -1,0 +1,4 @@
+INPUT                   = ha-kiosk-google-calendar-sync/src
+OUTPUT_DIRECTORY        = docs/_doxygen/ha-kiosk-google-calendar-sync
+
+@INCLUDE = docs/Doxyfile.common

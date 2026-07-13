@@ -3,9 +3,11 @@ BreakBeforeBraces: Allman
 IndentWidth: 4
 TabWidth: 4
 UseTab: Always
-ColumnLimit: 110
+ColumnLimit: 130
 PointerAlignment: Right
 SpacesInParentheses: true
+BinPackArguments: false
+BinPackParameters: false
 AllowShortIfStatementsOnASingleLine: false
 AllowShortBlocksOnASingleLine: Never
 AllowShortFunctionsOnASingleLine: None

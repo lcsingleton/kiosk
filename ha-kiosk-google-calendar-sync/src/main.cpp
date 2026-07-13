@@ -31,8 +31,7 @@ namespace
 // GoogleColorNames.h), using the live palettes fetched from
 // /calendar/v3/colors. Returns empty and fills `warning` if none of that
 // resolves — callers should log it clearly rather than silently guess.
-QString resolveColor( const QString &raw, const QJsonObject &eventPalette, const QJsonObject &calendarPalette,
-					  QString &warning )
+QString resolveColor( const QString &raw, const QJsonObject &eventPalette, const QJsonObject &calendarPalette, QString &warning )
 {
 	static const QRegularExpression hexPattern( QStringLiteral( "^#?[0-9a-fA-F]{6}$" ) );
 	const QString trimmed = raw.trimmed();
@@ -55,9 +54,7 @@ QString resolveColor( const QString &raw, const QJsonObject &eventPalette, const
 			return hex.toLower();
 	}
 	warning =
-		QStringLiteral(
-			"unknown color \"%1\" — use a literal hex instead (see GoogleColorNames.h for known names)" )
-			.arg( raw );
+		QStringLiteral( "unknown color \"%1\" — use a literal hex instead (see GoogleColorNames.h for known names)" ).arg( raw );
 	return QString();
 }
 
@@ -65,9 +62,12 @@ QString resolveColor( const QString &raw, const QJsonObject &eventPalette, const
 // then invokes `onDone(hadError)`. A fresh SnapshotBuilder every call since
 // "today"/"this weekend" are computed at construction time and must be
 // re-evaluated each cycle.
-void runSyncCycle( CalendarClient *client, const QVector<CalendarConfig> &calendars,
-				   const QVector<PersonConfig> &people, const QHash<QString, QString> &eventColorIdToHex,
-				   const QHash<QString, QString> &calendarFallbackHex, const QString &snapshotPath,
+void runSyncCycle( CalendarClient *client,
+				   const QVector<CalendarConfig> &calendars,
+				   const QVector<PersonConfig> &people,
+				   const QHash<QString, QString> &eventColorIdToHex,
+				   const QHash<QString, QString> &calendarFallbackHex,
+				   const QString &snapshotPath,
 				   std::function<void( bool hadError )> onDone )
 {
 	auto builder = std::make_shared<SnapshotBuilder>( people, eventColorIdToHex, calendarFallbackHex );
@@ -81,46 +81,48 @@ void runSyncCycle( CalendarClient *client, const QVector<CalendarConfig> &calend
 
 	for ( const CalendarConfig &cal : calendars )
 	{
-		client->listEvents(
-			cal.calendarId, windowStart, windowEnd,
-			[builder, cal, pending, hadError, snapshotPath, onDone]( QJsonArray events, QString err ) {
-				if ( !err.isEmpty() )
-				{
-					qWarning().noquote() << QStringLiteral( "failed to fetch events for calendar %1: %2" )
-												.arg( cal.calendarId, err );
-					*hadError = true;
-				}
-				else
-				{
-					builder->addEvents( cal.calendarId, events );
-				}
+		client->listEvents( cal.calendarId,
+							windowStart,
+							windowEnd,
+							[builder, cal, pending, hadError, snapshotPath, onDone]( QJsonArray events, QString err )
+							{
+								if ( !err.isEmpty() )
+								{
+									qWarning().noquote() << QStringLiteral( "failed to fetch events for calendar %1: %2" )
+																.arg( cal.calendarId, err );
+									*hadError = true;
+								}
+								else
+								{
+									builder->addEvents( cal.calendarId, events );
+								}
 
-				if ( --( *pending ) > 0 )
-					return;
+								if ( --( *pending ) > 0 )
+									return;
 
-				// Which calendar a newly-created event (tapping an empty
-				// timeline slot) lands on — Config::load guarantees at
-				// least one calendar is configured, so this is never
-				// empty. Households with more than one configured calendar
-				// all get funneled onto the first regardless of which
-				// person's column was tapped; there's no per-person
-				// calendar ownership concept in this data model (see
-				// SnapshotBuilder's class comment).
-				QJsonObject snapshot = builder->build();
-				snapshot["defaultCalendarId"] = cal.calendarId;
+								// Which calendar a newly-created event (tapping an empty
+								// timeline slot) lands on — Config::load guarantees at
+								// least one calendar is configured, so this is never
+								// empty. Households with more than one configured calendar
+								// all get funneled onto the first regardless of which
+								// person's column was tapped; there's no per-person
+								// calendar ownership concept in this data model (see
+								// SnapshotBuilder's class comment).
+								QJsonObject snapshot = builder->build();
+								snapshot["defaultCalendarId"] = cal.calendarId;
 
-				QString writeError;
-				if ( SnapshotWriter::write( snapshotPath, snapshot, writeError ) )
-				{
-					qInfo().noquote() << "snapshot written to" << snapshotPath;
-				}
-				else
-				{
-					qCritical().noquote() << "failed to write snapshot:" << writeError;
-					*hadError = true;
-				}
-				onDone( *hadError );
-			} );
+								QString writeError;
+								if ( SnapshotWriter::write( snapshotPath, snapshot, writeError ) )
+								{
+									qInfo().noquote() << "snapshot written to" << snapshotPath;
+								}
+								else
+								{
+									qCritical().noquote() << "failed to write snapshot:" << writeError;
+									*hadError = true;
+								}
+								onDone( *hadError );
+							} );
 	}
 }
 
@@ -135,8 +137,7 @@ int main( int argc, char *argv[] )
 
 	QCommandLineParser parser;
 	parser.addOption( { "config", "Path to daemon config JSON.", "path" } );
-	parser.addOption(
-		{ "once", "Run a single sync cycle and exit, instead of polling forever (for testing)." } );
+	parser.addOption( { "once", "Run a single sync cycle and exit, instead of polling forever (for testing)." } );
 	parser.process( app );
 
 	const QString configPath = parser.value( "config" );
@@ -163,8 +164,7 @@ int main( int argc, char *argv[] )
 	QLockFile lockFile( runtimeDir + "/ha-kiosk-google-calendar-sync.lock" );
 	if ( !lockFile.tryLock() )
 	{
-		qCritical().noquote() << "another instance is already running (lock held at" << lockFile.fileName()
-							  << ")";
+		qCritical().noquote() << "another instance is already running (lock held at" << lockFile.fileName() << ")";
 		return 1;
 	}
 
@@ -176,21 +176,23 @@ int main( int argc, char *argv[] )
 	}
 
 	// Only constructed when configured (Config::load already verified all
-	// three fields are set together or not at all) — CalendarClient treats
-	// a null delegatedAuth as "no fallback, just report delegation_required
-	// as a failure", same behavior as before this existed.
+	// three fields are set together or not at all). When delegatedAuth is
+	// null, CalendarClient has no fallback: a patchEvent that comes back
+	// delegation_required is simply reported to the caller as a failure.
 	DelegatedAuth *delegatedAuth = nullptr;
 	if ( !config.oauthClientId.isEmpty() )
 	{
-		delegatedAuth =
-			new DelegatedAuth( config.oauthClientId, config.oauthClientSecret, config.userTokenPath, &app );
-		QObject::connect( delegatedAuth, &DelegatedAuth::authorizationPending, &app,
-						  []( QString verificationUrl, QString userCode, int expiresInSecs ) {
-							  qWarning().noquote() << QStringLiteral(
-								  "Google Calendar needs one-time authorization to invite attendees: visit "
-								  "%1 and enter code %2 (expires in %3 min)" )
-														.arg( verificationUrl, userCode )
-														.arg( expiresInSecs / 60 );
+		delegatedAuth = new DelegatedAuth( config.oauthClientId, config.oauthClientSecret, config.userTokenPath, &app );
+		QObject::connect( delegatedAuth,
+						  &DelegatedAuth::authorizationPending,
+						  &app,
+						  []( QString verificationUrl, QString userCode, int expiresInSecs )
+						  {
+							  qWarning().noquote()
+								  << QStringLiteral( "Google Calendar needs one-time authorization to invite attendees: visit "
+													 "%1 and enter code %2 (expires in %3 min)" )
+										 .arg( verificationUrl, userCode )
+										 .arg( expiresInSecs / 60 );
 						  } );
 	}
 
@@ -211,18 +213,24 @@ int main( int argc, char *argv[] )
 	// command socket, and first sync cycle — all happens inside this
 	// callback rather than linearly in main().
 	client->fetchColorDefinitions(
-		[=]( QJsonObject calendarPalette, QJsonObject eventPalette, QString colorsError ) {
+		[=]( QJsonObject calendarPalette, QJsonObject eventPalette, QString colorsError )
+		{
 			if ( !colorsError.isEmpty() )
 			{
 				qCritical().noquote() << "failed to fetch color definitions:" << colorsError;
+				// Deferred via singleShot(0, ...) rather than exiting right
+				// here: this callback runs from inside the fetchColorDefinitions
+				// QNetworkReply's finished handler, which still has its own
+				// deleteLater() and signal delivery to finish: exiting the
+				// event loop mid-handler would tear the app down before that
+				// unwinds cleanly.
 				QTimer::singleShot( 0, qApp, []() { QCoreApplication::exit( 1 ); } );
 				return;
 			}
 
 			QHash<QString, QString> eventColorIdToHex;
 			for ( auto it = eventPalette.constBegin(); it != eventPalette.constEnd(); ++it )
-				eventColorIdToHex.insert( it.key(),
-										  it.value().toObject().value( "background" ).toString().toLower() );
+				eventColorIdToHex.insert( it.key(), it.value().toObject().value( "background" ).toString().toLower() );
 
 			QVector<PersonConfig> resolvedPeople;
 			qInfo().noquote() << "resolved person colors:";
@@ -232,14 +240,12 @@ int main( int argc, char *argv[] )
 				const QString hex = resolveColor( p.color, eventPalette, calendarPalette, warning );
 				if ( !warning.isEmpty() )
 				{
-					qWarning().noquote()
-						<< QStringLiteral(
-							   "  %1: %2 — this person's events will fall to \"other\" until fixed" )
-							   .arg( p.person, warning );
+					qWarning().noquote() << QStringLiteral( "  %1: %2 — this person's events will fall to \"other\" until fixed" )
+												.arg( p.person, warning );
 					continue;
 				}
 				qInfo().noquote() << QStringLiteral( "  %1 = \"%2\" -> %3 (tagged via %4)" )
-										  .arg( p.person, p.color, hex, p.emails.join( ", " ) );
+										 .arg( p.person, p.color, hex, p.emails.join( ", " ) );
 				resolvedPeople.append( { p.person, hex, p.emails } );
 			}
 
@@ -256,19 +262,22 @@ int main( int argc, char *argv[] )
 					qWarning().noquote() << QStringLiteral( "  %1: %2" ).arg( cal.calendarId, warning );
 					continue;
 				}
-				qInfo().noquote()
-					<< QStringLiteral( "  %1 = \"%2\" -> %3" ).arg( cal.calendarId, cal.color, hex );
+				qInfo().noquote() << QStringLiteral( "  %1 = \"%2\" -> %3" ).arg( cal.calendarId, cal.color, hex );
 				calendarFallbackHex.insert( cal.calendarId, hex );
 			}
 
-			auto cycle = [client, calendars, resolvedPeople, eventColorIdToHex, calendarFallbackHex,
-						  snapshotPath, once]() {
-				runSyncCycle( client, calendars, resolvedPeople, eventColorIdToHex, calendarFallbackHex,
-							  snapshotPath, [once]( bool hadError ) {
+			auto cycle = [client, calendars, resolvedPeople, eventColorIdToHex, calendarFallbackHex, snapshotPath, once]()
+			{
+				runSyncCycle( client,
+							  calendars,
+							  resolvedPeople,
+							  eventColorIdToHex,
+							  calendarFallbackHex,
+							  snapshotPath,
+							  [once]( bool hadError )
+							  {
 								  if ( once )
-									  QTimer::singleShot( 0, qApp, [hadError]() {
-										  QCoreApplication::exit( hadError ? 1 : 0 );
-									  } );
+									  QTimer::singleShot( 0, qApp, [hadError]() { QCoreApplication::exit( hadError ? 1 : 0 ); } );
 							  } );
 			};
 

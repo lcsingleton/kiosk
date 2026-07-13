@@ -1,0 +1,4 @@
+INPUT                   = ha-kiosk/src
+OUTPUT_DIRECTORY        = docs/_doxygen/ha-kiosk
+
+@INCLUDE = docs/Doxyfile.common

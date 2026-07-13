@@ -12,6 +12,8 @@
 namespace
 {
 
+// Qt may invoke the message handler from any thread that logs, so the file
+// handle it writes through is shared state and needs locking around it.
 QFile *g_logFile = nullptr;
 QMutex g_mutex;
 
@@ -41,20 +43,31 @@ void messageHandler( QtMsgType type, const QMessageLogContext &context, const QS
 	Q_UNUSED( context )
 
 	const QString line = QStringLiteral( "%1 [%2] %3" )
-							  .arg( QDateTime::currentDateTime().toString( "yyyy-MM-dd HH:mm:ss.zzz" ),
-									QString::fromLatin1( levelName( type ) ), message );
+							 .arg( QDateTime::currentDateTime().toString( "yyyy-MM-dd HH:mm:ss.zzz" ),
+								   QString::fromLatin1( levelName( type ) ),
+								   message );
 
+	// Raw stdio, not qDebug()/QTextStream(stdout): we're inside the message
+	// handler itself, so routing back through Qt's logging would recurse.
 	fprintf( stderr, "%s\n", qPrintable( line ) );
 
+	// Only the file write needs the lock — stderr is left to libc, and
+	// g_logFile is the only state shared across concurrent logging threads.
 	QMutexLocker locker( &g_mutex );
 	if ( g_logFile )
 	{
+		// Re-wrapping the QFile each call is cheap and avoids keeping a
+		// QTextStream (with its own buffering) alive across calls; the file
+		// itself was opened in Append mode so writes always land at EOF.
 		QTextStream stream( g_logFile );
 		stream << line << '\n';
 		stream.flush();
 	}
 	locker.unlock();
 
+	// Installing a custom handler suppresses Qt's default fatal-message
+	// behavior too, so this has to reproduce the abort() a qFatal() would
+	// otherwise trigger.
 	if ( type == QtFatalMsg )
 		abort();
 }
@@ -63,6 +76,9 @@ void messageHandler( QtMsgType type, const QMessageLogContext &context, const QS
 
 void FileLogger::install( const QString &moduleName )
 {
+	// Best-effort: the return value is ignored deliberately. If the directory
+	// can't be created (missing provisioning, no permission, etc.) the
+	// open() below fails instead and that failure is what's actually handled.
 	const QString dirPath = QStringLiteral( "/var/log/%1" ).arg( moduleName );
 	QDir().mkpath( dirPath );
 
@@ -73,11 +89,17 @@ void FileLogger::install( const QString &moduleName )
 	}
 	else
 	{
+		// File logging is a nice-to-have, not a requirement: warn once via
+		// stderr and fall through so g_logFile stays null and every
+		// subsequent message just logs to stderr instead of failing outright.
 		fprintf( stderr,
 				 "FileLogger: cannot open %s for writing (%s) — logging to stderr only\n",
-				 qPrintable( file->fileName() ), qPrintable( file->errorString() ) );
+				 qPrintable( file->fileName() ),
+				 qPrintable( file->errorString() ) );
 		delete file;
 	}
 
+	// Installed last, once g_logFile is in its final state, so no message
+	// can arrive through the handler while that state is still being set up.
 	qInstallMessageHandler( messageHandler );
 }

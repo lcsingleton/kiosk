@@ -35,8 +35,11 @@ constexpr int kWeatherHistoryWindowMinutes = 5;
 // only built once all of them have landed. Without an influxClient,
 // currentConditions/weatherHistory are simply left empty in the snapshot —
 // there's no BOM fallback for either (see BomClient/SnapshotBuilder).
-void runSyncCycle( BomClient *bomClient, InfluxClient *influxClient, const QString &geohash,
-					const QString &snapshotPath, std::function<void( bool hadError )> onDone )
+void runSyncCycle( BomClient *bomClient,
+				   InfluxClient *influxClient,
+				   const QString &geohash,
+				   const QString &snapshotPath,
+				   std::function<void( bool hadError )> onDone )
 {
 	auto daily = std::make_shared<QJsonValue>();
 	auto hourly = std::make_shared<QJsonValue>();
@@ -45,13 +48,12 @@ void runSyncCycle( BomClient *bomClient, InfluxClient *influxClient, const QStri
 	auto pending = std::make_shared<int>( influxClient ? 4 : 2 );
 	auto hadError = std::make_shared<bool>( false );
 
-	auto maybeFinish = [daily, hourly, currentConditions, weatherHistory, pending, hadError, snapshotPath,
-						 onDone]() {
+	auto maybeFinish = [daily, hourly, currentConditions, weatherHistory, pending, hadError, snapshotPath, onDone]()
+	{
 		if ( --( *pending ) > 0 )
 			return;
 
-		const QJsonObject snapshot =
-			SnapshotBuilder::build( *daily, *hourly, *currentConditions, *weatherHistory );
+		const QJsonObject snapshot = SnapshotBuilder::build( *daily, *hourly, *currentConditions, *weatherHistory );
 		QString writeError;
 		if ( SnapshotWriter::write( snapshotPath, snapshot, writeError ) )
 		{
@@ -65,48 +67,54 @@ void runSyncCycle( BomClient *bomClient, InfluxClient *influxClient, const QStri
 		onDone( *hadError );
 	};
 
-	bomClient->fetchDaily( geohash, [daily, hadError, maybeFinish]( QJsonValue data, QString error ) {
-		if ( !error.isEmpty() )
-		{
-			qWarning().noquote() << "failed to fetch daily forecast:" << error;
-			*hadError = true;
-		}
-		else
-		{
-			*daily = data;
-		}
-		maybeFinish();
-	} );
-	bomClient->fetchHourly( geohash, [hourly, hadError, maybeFinish]( QJsonValue data, QString error ) {
-		if ( !error.isEmpty() )
-		{
-			qWarning().noquote() << "failed to fetch hourly forecast:" << error;
-			*hadError = true;
-		}
-		else
-		{
-			*hourly = data;
-		}
-		maybeFinish();
-	} );
+	bomClient->fetchDaily( geohash,
+						   [daily, hadError, maybeFinish]( QJsonValue data, QString error )
+						   {
+							   if ( !error.isEmpty() )
+							   {
+								   qWarning().noquote() << "failed to fetch daily forecast:" << error;
+								   *hadError = true;
+							   }
+							   else
+							   {
+								   *daily = data;
+							   }
+							   maybeFinish();
+						   } );
+	bomClient->fetchHourly( geohash,
+							[hourly, hadError, maybeFinish]( QJsonValue data, QString error )
+							{
+								if ( !error.isEmpty() )
+								{
+									qWarning().noquote() << "failed to fetch hourly forecast:" << error;
+									*hadError = true;
+								}
+								else
+								{
+									*hourly = data;
+								}
+								maybeFinish();
+							} );
 	if ( influxClient )
 	{
-		influxClient->fetchTemperatureHistory(
-			kWeatherHistoryHours, kWeatherHistoryWindowMinutes,
-			[weatherHistory, hadError, maybeFinish]( QJsonValue data, QString error ) {
-				if ( !error.isEmpty() )
-				{
-					qWarning().noquote() << "failed to fetch weather history:" << error;
-					*hadError = true;
-				}
-				else
-				{
-					*weatherHistory = data;
-				}
-				maybeFinish();
-			} );
+		influxClient->fetchTemperatureHistory( kWeatherHistoryHours,
+											   kWeatherHistoryWindowMinutes,
+											   [weatherHistory, hadError, maybeFinish]( QJsonValue data, QString error )
+											   {
+												   if ( !error.isEmpty() )
+												   {
+													   qWarning().noquote() << "failed to fetch weather history:" << error;
+													   *hadError = true;
+												   }
+												   else
+												   {
+													   *weatherHistory = data;
+												   }
+												   maybeFinish();
+											   } );
 		influxClient->fetchCurrentConditions(
-			[currentConditions, hadError, maybeFinish]( QJsonValue data, QString error ) {
+			[currentConditions, hadError, maybeFinish]( QJsonValue data, QString error )
+			{
 				if ( !error.isEmpty() )
 				{
 					qWarning().noquote() << "failed to fetch current conditions:" << error;
@@ -132,8 +140,7 @@ int main( int argc, char *argv[] )
 
 	QCommandLineParser parser;
 	parser.addOption( { "config", "Path to daemon config JSON.", "path" } );
-	parser.addOption(
-		{ "once", "Run a single sync cycle and exit, instead of polling forever (for testing)." } );
+	parser.addOption( { "once", "Run a single sync cycle and exit, instead of polling forever (for testing)." } );
 	parser.process( app );
 
 	const QString configPath = parser.value( "config" );
@@ -160,16 +167,15 @@ int main( int argc, char *argv[] )
 	QLockFile lockFile( runtimeDir + "/ha-kiosk-weather-sync.lock" );
 	if ( !lockFile.tryLock() )
 	{
-		qCritical().noquote() << "another instance is already running (lock held at" << lockFile.fileName()
-							  << ")";
+		qCritical().noquote() << "another instance is already running (lock held at" << lockFile.fileName() << ")";
 		return 1;
 	}
 
 	auto bomClient = new BomClient( &app );
-	InfluxClient *influxClient = config.influxUrl.isEmpty()
-									 ? nullptr
-									 : new InfluxClient( config.influxUrl, config.influxOrg, config.influxBucket,
-														  config.influxToken, &app );
+	InfluxClient *influxClient =
+		config.influxUrl.isEmpty()
+			? nullptr
+			: new InfluxClient( config.influxUrl, config.influxOrg, config.influxBucket, config.influxToken, &app );
 	if ( !influxClient )
 		qInfo().noquote() << "no InfluxDB config — weatherHistory and observations will be empty";
 
@@ -179,12 +185,17 @@ int main( int argc, char *argv[] )
 	const int pollIntervalMs = qMax( 1, config.pollIntervalSeconds ) * 1000;
 
 	auto pollTimer = std::make_shared<QTimer>();
-	auto cycle = [bomClient, influxClient, geohash, snapshotPath, once]() {
-		runSyncCycle( bomClient, influxClient, geohash, snapshotPath, [once]( bool hadError ) {
-			if ( once )
-				QTimer::singleShot( 0, qApp,
-									[hadError]() { QCoreApplication::exit( hadError ? 1 : 0 ); } );
-		} );
+	auto cycle = [bomClient, influxClient, geohash, snapshotPath, once]()
+	{
+		runSyncCycle( bomClient,
+					  influxClient,
+					  geohash,
+					  snapshotPath,
+					  [once]( bool hadError )
+					  {
+						  if ( once )
+							  QTimer::singleShot( 0, qApp, [hadError]() { QCoreApplication::exit( hadError ? 1 : 0 ); } );
+					  } );
 	};
 
 	if ( !once )
