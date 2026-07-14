@@ -228,5 +228,22 @@ Window {
             parent: canvas
             dashboardData: data
         }
+
+        // Software-only dim for now — see IdleController; real backlight
+        // sysfs control is a follow-up once the actual device path is
+        // confirmed on hardware. Above everything else (including popups),
+        // since "asleep" should cover the whole screen regardless of what
+        // was open when the idle timeout hit.
+        Rectangle {
+            id: sleepOverlay
+            anchors.fill: parent
+            z: 1000
+            color: "black"
+            opacity: data.screenAsleep ? 1 : 0
+            visible: opacity > 0
+            Behavior on opacity {
+                NumberAnimation { duration: 400 }
+            }
+        }
     }
 }

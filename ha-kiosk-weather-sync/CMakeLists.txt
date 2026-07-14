@@ -19,11 +19,11 @@ add_executable(ha-kiosk-weather-sync
     src/InfluxClient.cpp
     src/IconMap.cpp
     src/SnapshotBuilder.cpp
-    src/SnapshotWriter.cpp
 )
 
 target_link_libraries(ha-kiosk-weather-sync PRIVATE
     kiosk-log
+    snapshot-writer
     Qt6::Core
     Qt6::Network
 )

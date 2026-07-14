@@ -48,6 +48,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-smbus2 \
     vim-tiny \
     sudo \
+    # --- ha-kiosk-presence-sync's camera capture + bring-up tooling ---
+    # gstreamer1.0-libcamera (the libcamerasrc element) isn't guaranteed to
+    # exist/work against Debian 12's bookworm libcamera build for every
+    # sensor — confirm on the real tablet (see deploy/README.md's camera
+    # bring-up section) and fall back to v4l2src (gstreamer1.0-plugins-good,
+    # already below) if it doesn't.
+    libgstreamer1.0-0 \
+    gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-libcamera \
+    libcamera-tools \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --break-system-packages --no-cache-dir adafruit-blinka adafruit-circuitpython-vl53l0x
@@ -97,6 +108,8 @@ COPY ha-kiosk-google-calendar-sync/etc/tmpfiles.d/kiosk.conf /etc/tmpfiles.d/kio
 COPY ha-kiosk-google-calendar-sync/etc/logrotate.d/ha-kiosk-google-calendar-sync /etc/logrotate.d/ha-kiosk-google-calendar-sync
 COPY ha-kiosk-weather-sync/etc/systemd/system/ha-kiosk-weather-sync.service /etc/systemd/system/ha-kiosk-weather-sync.service
 COPY ha-kiosk-weather-sync/etc/logrotate.d/ha-kiosk-weather-sync /etc/logrotate.d/ha-kiosk-weather-sync
+COPY ha-kiosk-presence-sync/etc/systemd/system/ha-kiosk-presence-sync.service /etc/systemd/system/ha-kiosk-presence-sync.service
+COPY ha-kiosk-presence-sync/etc/logrotate.d/ha-kiosk-presence-sync /etc/logrotate.d/ha-kiosk-presence-sync
 
 # /opt/kiosk (the binaries + qml/assets) is deliberately NOT copied in here
 # — run.sh bind-mounts ./dist/opt/kiosk from the build container's output
@@ -110,7 +123,8 @@ RUN systemctl enable \
     ssh.service \
     kiosk.service \
     ha-kiosk-google-calendar-sync.service \
-    ha-kiosk-weather-sync.service
+    ha-kiosk-weather-sync.service \
+    ha-kiosk-presence-sync.service
 
 STOPSIGNAL SIGRTMIN+3
 EXPOSE 22

@@ -1,0 +1,12 @@
+{
+  "_comment_cameraPipeline": "GStreamer source pipeline up to (not including) the appsink stage — this daemon appends its own appsink internally. Default targets a MIPI-CSI camera via libcamera, 8-bit greyscale (known to work broadly). For a USB webcam instead, replace with e.g. \"v4l2src device=/dev/video0 ! videoconvert ! video/x-raw,format=GRAY8,width=320,height=240,framerate=1/1\" — nothing else about this daemon changes either way. For better low-light precision, IF this board's ISP/libcamera pipeline actually preserves it (confirm on hardware first — see deploy/README.md's camera bring-up section), try \"libcamerasrc ! videoconvert ! video/x-raw,format=GRAY16_LE,width=320,height=240,framerate=1/1\" and set pixelMaxValue below to match the sensor's real range. Or, best of all IF the board's rkisp1 pipeline handler exposes it (also unconfirmed, also see deploy/README.md): skip the ISP's demosaic entirely with raw sensor Bayer data, no videoconvert stage at all, e.g. \"libcamerasrc ! video/x-bayer,format=rggb,width=320,height=240,framerate=1/1\" (must be an *unpacked* raw format — see Config::cameraPipeline's doc) with pixelMaxValue set to the sensor's native bit depth.",
+  "cameraPipeline": "libcamerasrc ! videoconvert ! video/x-raw,format=GRAY8,width=320,height=240,framerate=1/1",
+  "_comment_pixelMaxValue": "Must match cameraPipeline's actual bit depth — see Config::pixelMaxValue's doc for why this can't just be set to 65535 and forgotten.",
+  "pixelMaxValue": 255,
+  "pollIntervalMs": 2000,
+  "motionThreshold": 0.02,
+  "_comment_backgroundAdaptRate": "Per-sample blend weight (0-1) toward each new frame when adapting the background reference on samples with no presence detected — see MotionDetector. Larger values track scene changes (e.g. lighting) faster but risk absorbing a very slow-moving presence into the background.",
+  "backgroundAdaptRate": 0.05,
+  "presenceHoldSeconds": 10,
+  "snapshotPath": "/run/kiosk/presence-snapshot.json"
+}

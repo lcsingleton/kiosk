@@ -1,0 +1,29 @@
+[Unit]
+Description=Camera presence/motion sync daemon for the kiosk app
+
+[Service]
+User=kiosk
+Group=kiosk
+# Camera device access (e.g. /dev/video*, /dev/media*) — the kiosk user is
+# already in this group for EGL/DRM (see deploy/README.md), which happens to
+# cover camera nodes too.
+SupplementaryGroups=video
+ExecStart=/opt/kiosk/bin/ha-kiosk-presence-sync --config /etc/kiosk/presence-config.json
+# Shared with ha-kiosk-google-calendar-sync.service/ha-kiosk-weather-sync.service
+# (same RuntimeDirectory=kiosk — ha-kiosk the app reads every daemon's
+# snapshot from one well-known dir). Preserve=yes so a restart of *this* unit
+# doesn't blow away the other daemons' snapshot/lock files sitting in the
+# same directory; still starts fresh at actual boot, since /run itself is a
+# new tmpfs then.
+RuntimeDirectory=kiosk
+RuntimeDirectoryPreserve=yes
+RuntimeDirectoryMode=0750
+LogsDirectory=ha-kiosk-presence-sync
+LogsDirectoryMode=0750
+Restart=always
+RestartSec=1
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -204,4 +204,9 @@ Item {
     readonly property string humidity: currentConditions.humidity || ""
     readonly property string windSpeed: currentConditions.windSpeed || ""
     readonly property string rainToday: currentConditions.rainToday || ""
+
+    // Whether the screen is currently dimmed for inactivity — see
+    // IdleController. main.qml binds the full-screen dim overlay's opacity
+    // to this, same re-exposition treatment as every bridge property above.
+    readonly property bool screenAsleep: idleController.screenAsleep
 }

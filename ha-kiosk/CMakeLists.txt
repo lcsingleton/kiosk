@@ -12,7 +12,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_BINDIR}"
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Network)
 
-add_executable(ha-kiosk src/main.cpp src/CalendarBridge.cpp src/WeatherBridge.cpp)
+add_executable(ha-kiosk src/main.cpp src/CalendarBridge.cpp src/WeatherBridge.cpp src/PresenceBridge.cpp src/IdleController.cpp)
 target_link_libraries(ha-kiosk PRIVATE calendar-sync-client kiosk-log Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::Network)
 
 # qml/ and assets/ are both architecture-independent data (interpreted QML

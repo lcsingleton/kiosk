@@ -20,13 +20,13 @@ add_executable(ha-kiosk-google-calendar-sync
     src/DelegatedAuth.cpp
     src/CalendarClient.cpp
     src/SnapshotBuilder.cpp
-    src/SnapshotWriter.cpp
     src/CommandServer.cpp
 )
 
 target_link_libraries(ha-kiosk-google-calendar-sync PRIVATE
     calendar-sync-client
     kiosk-log
+    snapshot-writer
     Qt6::Core
     Qt6::Network
     OpenSSL::SSL

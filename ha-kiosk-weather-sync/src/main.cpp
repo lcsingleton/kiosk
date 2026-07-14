@@ -14,9 +14,9 @@
 #include "Config.h"
 #include "InfluxClient.h"
 #include "SnapshotBuilder.h"
-#include "SnapshotWriter.h"
 
 #include <kiosk-log/FileLogger.h>
+#include <snapshot-writer/SnapshotWriter.h>
 
 namespace
 {

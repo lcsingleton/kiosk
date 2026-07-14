@@ -18,7 +18,9 @@ include(GNUInstallDirs)
 # its two consumers, rather than nested under either one. Must be added
 # before both.
 add_subdirectory(kiosk-log)
+add_subdirectory(snapshot-writer)
 add_subdirectory(calendar-sync-client)
 add_subdirectory(ha-kiosk-google-calendar-sync)
 add_subdirectory(ha-kiosk-weather-sync)
+add_subdirectory(ha-kiosk-presence-sync)
 add_subdirectory(ha-kiosk)

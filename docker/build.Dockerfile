@@ -8,6 +8,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Only what's actually #include'd/linked today (see root CMakeLists.txt's
 # find_package calls) — add libi2c-dev/libgpiod-dev/libusb-1.0-0-dev/
 # libhidapi-dev here once the C++ side actually links against them.
+# libgstreamer-plugins-base1.0-dev provides the gstreamer-app-1.0 pkg-config
+# module ha-kiosk-presence-sync's CMakeLists.txt looks up for camera capture.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
@@ -16,6 +18,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     qt6-base-dev \
     qt6-declarative-dev \
     libssl-dev \
+    libgstreamer1.0-dev \
+    libgstreamer-plugins-base1.0-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /home/kiosk/kiosk
